@@ -118,6 +118,36 @@ details[open] summary{margin-bottom:10px}
 .score span{font-size:12px;color:var(--muted)}
 .sheet-card ul{margin:0;padding-left:18px}
 [hidden]{display:none!important}
+.stats{display:flex;gap:8px;flex-wrap:wrap}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--muted)}
+.stat b{font-family:var(--f-display);font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums;margin-right:3px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;margin-bottom:12px}
+.tabs button{border:0;background:none;border-radius:7px;padding:7px;font-size:14px}
+.tabs button[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.1);font-weight:600}
+.course{margin-bottom:12px}
+.lessons{display:flex;flex-direction:column;gap:4px}
+.lesson{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;align-items:start;text-align:left;border:1px solid transparent;background:none;border-radius:10px;padding:7px 8px}
+.lesson:hover{background:var(--surface-2)}
+.lesson[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.lesson .ck{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:11px;margin-top:2px}
+.lesson.done .ck{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.lesson b{display:block;font-size:14px;font-weight:600}
+.lesson span{display:block;font-size:12px;color:var(--muted)}
+.lesson .next{display:inline-block;font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;color:var(--accent);margin-left:6px}
+.detail{border-top:1px solid var(--line);padding-top:12px;margin-top:4px;display:flex;flex-direction:column;gap:10px}
+.detail h3{font-family:var(--f-display);font-size:18px;font-weight:500;margin:0}
+.ph{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
+.ph:last-child{border-bottom:0}
+.ph p{margin:0;font-size:14.5px}
+.ph small{grid-column:1/-1;color:var(--muted);font-size:12px}
+.ph.used p{color:var(--accent);font-weight:600}
+.goals{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.goals li{display:flex;gap:8px;align-items:flex-start;font-size:13.5px}
+.goals li i{flex:none;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--line);margin-top:3px;font-style:normal;display:grid;place-items:center;font-size:10px}
+.goals li.ok{color:var(--muted)}
+.goals li.ok i{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mission{width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.mission .done-banner{background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:6px 10px;font-weight:600;font-size:13.5px}
 @media (max-width:860px){
   .app{grid-template-columns:1fr;height:auto;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
   html,body{height:auto}
@@ -132,12 +162,14 @@ details[open] summary{margin-bottom:10px}
 <div class="app">
   <div class="col">
     <div class="brand"><h1>Speak Up</h1><span class="live">LIVE</span></div>
+    <div class="stats" id="stats"></div>
 
     <section class="card stage">
       <div class="orb idle" id="orb"><div class="ring" id="ring"></div><div class="core" id="core"></div></div>
       <p class="who-name" id="whoName">대화 상대 대기 중</p>
       <div class="state" id="stateTxt">아래에서 상황을 고르고 대화를 시작하세요.</div>
       <div class="caption" id="caption"></div>
+      <div class="mission" id="missionBox" hidden></div>
       <div class="ctrls">
         <button class="btn primary big" id="startBtn">대화 시작</button>
         <button class="btn" id="muteBtn" hidden>마이크 끄기</button>
@@ -151,14 +183,22 @@ details[open] summary{margin-bottom:10px}
         <input type="password" id="apiKey" placeholder="AIza…" autocomplete="off">
         <p class="hint"><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>에서 무료로 만들 수 있어요. 키는 이 기기 브라우저에만 저장되고 Google에만 전송돼요.</p>
       </div>
-      <div class="field">
-        <p class="label">상황</p>
-        <select id="scen"></select>
+      <div class="tabs" role="tablist">
+        <button id="tabLesson" role="tab">레슨</button>
+        <button id="tabFree" role="tab">자유 대화</button>
       </div>
-      <div class="row2">
+      <div id="lessonPane">
+        <div id="courseList"></div>
+        <div id="lessonDetail" hidden></div>
+      </div>
+      <div id="freePane" hidden>
+        <div class="field">
+          <p class="label">상황</p>
+          <select id="scen"></select>
+        </div>
         <div class="field"><p class="label">말투</p><select id="style"></select></div>
-        <div class="field"><p class="label">레벨</p><select id="level"></select></div>
       </div>
+      <div class="field"><p class="label">레벨</p><select id="level"></select></div>
       <div class="row2">
         <div class="field"><p class="label">목소리</p><select id="voice"></select></div>
         <div class="field"><p class="label">자막</p><select id="capMode"><option value="show">보이기</option><option value="hide">가리기(듣기 연습)</option></select></div>
@@ -194,6 +234,7 @@ details[open] summary{margin-bottom:10px}
 
 <div class="sheet" id="sheet" hidden><div class="sheet-card" id="sheetCard"></div></div>
 
+<script src="lessons.js"></script>
 <script>
 (() => {
 "use strict";
@@ -290,7 +331,97 @@ function save(){
   if ($("#textModel").value) store.set("textModel",$("#textModel").value);
 }
 const scen = () => SCENARIOS.find(s => s.id===$("#scen").value) || SCENARIOS[0];
-const style = () => STYLES.find(s => s.id===$("#style").value) || STYLES[0];
+
+/* ---------- lessons & progress ---------- */
+const COURSES = window.SPEAKUP_COURSES || [];
+const ALL_LESSONS = COURSES.flatMap(c => c.lessons.map(l => ({...l, course: c.id, courseKo: c.ko, style: l.style || c.style})));
+let mode = store.get("mode","lesson");
+let selLessonId = store.get("lesson", ALL_LESSONS[0] && ALL_LESSONS[0].id);
+let activeLesson = null, missionDone = [], phraseUsed = [], sessionStart = 0;
+let progress = store.get("progress", {done:{}, days:[], minutes:0});
+const findLesson = id => ALL_LESSONS.find(l => l.id===id) || null;
+function curLesson(){ return running ? activeLesson : (mode==="lesson" ? findLesson(selLessonId) : null); }
+function persona(){
+  const L = curLesson();
+  return L ? {name:L.name, role:L.role, open:L.open, ko:L.title + " · " + L.ko, style:L.style} : scen();
+}
+const style = () => STYLES.find(s => s.id===(curLesson() ? curLesson().style : $("#style").value)) || STYLES[0];
+const today = () => { const d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+function streak(){
+  const set = new Set(progress.days); let n = 0; const d = new Date();
+  if (!set.has(today())) d.setDate(d.getDate()-1);
+  for (;;){ const k = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); if (!set.has(k)) break; n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+function renderStats(){
+  const box = $("#stats"); box.textContent = "";
+  const add = (num, label) => { const s = el("span","stat"); s.append(el("b",null,String(num)), label); box.append(s); };
+  add(streak(), "일 연속"); add(Object.keys(progress.done).length + "/" + ALL_LESSONS.length, "레슨"); add(Math.round(progress.minutes), "분 연습");
+}
+function setMode(m){
+  mode = m; store.set("mode", m);
+  $("#tabLesson").setAttribute("aria-selected", m==="lesson"); $("#tabFree").setAttribute("aria-selected", m==="free");
+  $("#lessonPane").hidden = m!=="lesson"; $("#freePane").hidden = m!=="free";
+}
+$("#tabLesson").onclick = () => setMode("lesson");
+$("#tabFree").onclick = () => setMode("free");
+const detailEl = $("#lessonDetail");
+function renderCourses(){
+  const box = $("#courseList"); box.textContent = "";
+  const next = ALL_LESSONS.find(l => !progress.done[l.id]);
+  COURSES.forEach(c => {
+    const sec = el("div","course"); sec.append(el("p","label",c.ko));
+    const list = el("div","lessons");
+    c.lessons.forEach(l => {
+      const b = el("button","lesson"+(progress.done[l.id]?" done":"")); b.setAttribute("aria-pressed", l.id===selLessonId);
+      b.append(el("span","ck", progress.done[l.id] ? "✓" : ""));
+      const t = el("div"); const bt = el("b",null,l.ko); if (next && next.id===l.id) bt.append(el("span","next","다음"));
+      t.append(bt, el("span",null,l.title)); b.append(t);
+      b.onclick = () => { selLessonId = l.id; store.set("lesson", l.id); renderCourses(); detailEl.scrollIntoView({block:"nearest", behavior:"smooth"}); };
+      list.append(b);
+      if (l.id === selLessonId) list.append(detailEl);
+    });
+    sec.append(list); box.append(sec);
+  });
+  renderLessonDetail();
+}
+function phraseList(L, used){
+  const box = el("div");
+  L.phrases.forEach(([en,ko],i) => {
+    const r = el("div","ph"+(used && used[i] ? " used":"")); r.append(el("p",null,en));
+    const tl = el("div","tools"); tl.append(chip("듣기",() => sayLocal(en)), chip(isSaved(en)?"저장됨":"저장",() => { if (!isSaved(en)) toggleSave(en, ko); }, isSaved(en)));
+    r.append(tl, el("small",null,ko)); box.append(r);
+  });
+  return box;
+}
+function goalList(L, done){
+  const ul = el("ul","goals");
+  L.mission.forEach(([ko],i) => { const li = el("li", done && done[i] ? "ok" : ""); li.append(el("i",null, done && done[i] ? "✓" : ""), document.createTextNode(ko)); ul.append(li); });
+  return ul;
+}
+function renderLessonDetail(){
+  const d = detailEl, L = findLesson(selLessonId);
+  d.textContent = ""; d.hidden = !L; if (!L) return;
+  d.className = "detail";
+  d.append(el("h3",null,L.ko), el("p","hint",L.goal));
+  d.append(el("p","label","핵심 표현 · 먼저 따라 말해봐요"), phraseList(L));
+  d.append(el("p","label","롤플레이 미션"), goalList(L));
+  const how = STYLES.find(s => s.id===L.style); d.append(el("p","hint",`상대: ${L.name} · 말투: ${how ? how.ko : ""} · 약 5~10분`));
+}
+function renderMission(){
+  const box = $("#missionBox"), L = activeLesson;
+  box.hidden = !L || !running; if (box.hidden) return;
+  box.textContent = "";
+  if (missionDone.length && missionDone.every(Boolean)) box.append(el("div","done-banner","미션 완료! 더 얘기해도 되고, 끝내고 리포트를 봐도 돼요."));
+  box.append(el("p","label","미션"), goalList(L, missionDone), el("p","label","핵심 표현"), phraseList(L, phraseUsed));
+}
+function markPracticed(){
+  if (!sessionStart) return;
+  progress.minutes += (Date.now() - sessionStart) / 60000; sessionStart = 0;
+  if (!progress.days.includes(today())) progress.days.push(today());
+  progress.days = progress.days.slice(-400);
+  store.set("progress", progress); renderStats();
+}
 const level = () => LEVELS.find(s => s.id===$("#level").value) || LEVELS[1];
 const key = () => $("#apiKey").value.trim();
 
@@ -337,8 +468,26 @@ function fill(sel, list, pref){
 }
 
 /* ---------- prompts ---------- */
+function lessonPrompt(L){
+  const st = style(), l = level();
+  return `You're running a short live speaking lesson with a Korean adult, by voice. It has two parts.
+
+Lesson: "${L.title}" — ${L.goal}
+Key expressions:
+${L.phrases.map(([en,ko],i) => `${i+1}. "${en}" (${ko})`).join("\n")}
+
+PART 1, quick warm-up (about two minutes): as a friendly, upbeat coach, say hi in one short sentence and tell them you'll warm up with a few phrases. Then for each key expression in order: say it once, naturally, the way people really say it (natural linking and stress), and have them say it back. Listen. If it was fine, react quickly ("nice", "yep, that's it", "perfect") and move to the next one. If one thing was off (a sound, the stress, linking, a missing word), point out just that in a few words, say it slowly once, then normally, and let them try again. Max two tries per phrase, then move on no matter what. No lectures, no grammar explanations.
+
+PART 2, role-play: say something like "Alright, let's try it for real" and become ${L.role}. From here on stay fully in character as a real person, not a tutor or an AI. Steer the scene naturally so they get chances to: ${L.mission.map(m => m[1]).join("; ")}. Don't correct them during the role-play (corrections show on their screen). If they're stuck, nudge them toward one of the key expressions, like a friend would. When the scene reaches a natural end, wrap it up in character, then step out briefly and tell them in one or two casual sentences what they did well and which phrase to keep practicing.
+
+How you talk in the role-play: ${st.rule}
+${l.rule}
+Always sound like a real human, not an assistant: contractions and spoken forms, casual reactions (oh nice, no way, gotcha, haha), now and then natural fillers ("um", "I mean"). Short turns, one or two sentences, at most one question per turn. Never praise their English during the role-play, never repeat back what they said, no customer-service phrases.
+The role-play opening line is something like: "${L.open}"`;
+}
 function systemPrompt(){
-  const s = scen(), st = style(), l = level();
+  const L = curLesson(); if (L) return lessonPrompt(L);
+  const s = persona(), st = style(), l = level();
   return `You're in a live voice conversation with a Korean adult who is practicing spoken English. Stay fully in character the whole time as ${s.role}. You are a real person in this scene, not a tutor and not an AI; never say you're an AI or a language model unless they directly ask.
 
 How you talk: ${st.rule}
@@ -357,14 +506,20 @@ Sound like a real human on a call, not an assistant:
 Your opening line is something like: "${s.open}"`;
 }
 function feedbackPrompt(prevTutor, learner, nextTutor){
-  const s = scen(), st = style(), l = level();
+  const s = persona(), st = style(), l = level();
   return `A Korean adult is practicing spoken English in a live voice role-play (${s.ko}; speaking style: ${st.ko}; level: ${l.id}). The learner's line came from automatic speech transcription, so ignore punctuation/capitalization and guess past obvious transcription glitches.
 
 Other person said: """${prevTutor}"""
 Learner said: """${learner}"""
 Other person replied: """${nextTutor}"""
 
-Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": string, "terms": [{"phrase": string, "ko": string}]}
+${activeLesson ? `This is part of a lesson. If the learner is just repeating a drill phrase after the coach, judge only whether the words match; set ok=true unless words are wrong or missing.
+Mission goals (0-based): ${activeLesson.mission.map((m,i) => i+": "+m[1]).join(" | ")}
+Key expressions (0-based): ${activeLesson.phrases.map((p,i) => i+": "+p[0]).join(" | ")}
+` : ""}
+Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": string, "terms": [{"phrase": string, "ko": string}], "goals_done": [int], "phrases_used": [int]}
+- goals_done: ${activeLesson ? "indices of mission goals this learner line accomplishes during the role-play (not during the repeat-after-me drill). Be fair, not strict: a natural attempt counts." : "[]"}
+- phrases_used: ${activeLesson ? "indices of key expressions the learner used in their own words during the role-play (close variations count; drill repetitions don't)." : "[]"}
 - better: how a native speaker would ACTUALLY say the learner's line out loud here: casual, contractions, real everyday words. Never a stiff textbook sentence.
 - ok: true only if the learner's line already sounds like something a native would really say. Grammatically fine but stiff/textbook-y ("I am fine, thank you", "I am living in Honolulu", "It is very delicious") is ok=false.
 - notes_ko: 1-2 short Korean sentences on the single most important point and why natives say it that way. Casual Korean is fine.
@@ -394,7 +549,7 @@ function addTurn(role){
 }
 function lastTutorText(before){
   for (let i = turns.indexOf(before)-1; i >= 0; i--) if (turns[i].role==="tutor") return turns[i].text;
-  return scen().open;
+  return persona().open;
 }
 function finalizeMe(){
   if (!curMe) return;
@@ -415,6 +570,14 @@ function finalizeTutor(){
     generate(feedbackPrompt(lastTutorText(me), me.text, t.text)).then(r => {
       me.fb = {ok: !!r.ok, better: String(r.better||""), notes_ko: String(r.notes_ko||""), local_say: style().id==="casual" ? "" : String(r.local_say||"")};
       t.terms = Array.isArray(r.terms) ? r.terms.filter(x => x && x.phrase).slice(0,6).map(x => ({phrase:String(x.phrase), ko:String(x.ko||"")})) : [];
+      if (activeLesson && running){
+        (Array.isArray(r.goals_done) ? r.goals_done : []).forEach(i => { if (Number.isInteger(i) && i >= 0 && i < missionDone.length) missionDone[i] = true; });
+        (Array.isArray(r.phrases_used) ? r.phrases_used : []).forEach(i => { if (Number.isInteger(i) && i >= 0 && i < phraseUsed.length) phraseUsed[i] = true; });
+        if (missionDone.every(Boolean) && !progress.done[activeLesson.id]){
+          progress.done[activeLesson.id] = today(); store.set("progress", progress); renderStats(); renderCourses();
+        }
+        renderMission();
+      }
     }).catch(e => { me.fbErr = e.message==="rate" ? "무료 사용량 한도에 잠깐 걸렸어요. 이 문장은 교정을 건너뛰어요." : "교정을 못 받았어요."; })
       .finally(() => { me.checking = false; render(); });
   }
@@ -467,7 +630,7 @@ function doRender(){
   if (!turns.length){ feed.append($("#emptyTpl").content.cloneNode(true)); return; }
   turns.forEach(t => {
     const m = el("div","msg "+(t.role==="tutor"?"tutor":"me"));
-    m.append(el("span","who", t.role==="tutor" ? scen().name : "You"));
+    m.append(el("span","who", t.role==="tutor" ? persona().name : "You"));
     const live = (t===curTutor || t===curMe);
     m.append(el("div","bubble"+(live?" live":""), t.text || "…"));
     if (t.role==="tutor" && t.terms && t.terms.length){
@@ -534,7 +697,7 @@ function animate(){
   orb.classList.toggle("me", !speaking && lv > 0.06);
   $("#core").style.transform = `scale(${1 + Math.min(lv,1)*0.22})`;
   $("#ring").style.opacity = lv > 0.06 ? 0.6 : 0; $("#ring").style.transform = `scale(${1 + lv*0.3})`;
-  if (setupDone) setState(speaking ? `${scen().name}가 말하는 중 · 끼어들어도 돼요` : muted ? "마이크 꺼짐" : (lv > 0.06 ? "듣고 있어요…" : "말하세요. 멈추면 대답해요"));
+  if (setupDone) setState(speaking ? `${persona().name}가 말하는 중 · 끼어들어도 돼요` : muted ? "마이크 꺼짐" : (lv > 0.06 ? "듣고 있어요…" : "말하세요. 멈추면 대답해요"));
   requestAnimationFrame(animate);
 }
 
@@ -580,11 +743,12 @@ function connect(){
 }
 function handle(msg){
   if (msg.setupComplete){
-    setupDone = true; retries = 0; $("#whoName").textContent = scen().name;
+    setupDone = true; retries = 0; $("#whoName").textContent = persona().name;
     $("#orb").classList.remove("idle");
     if (!kicked){
       kicked = true;
-      ws.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text:"(The scene starts now. Say your opening line, in character, naturally.)"}]}], turnComplete:true}}));
+      const kick = activeLesson ? "(The lesson starts now. Begin part 1.)" : "(The scene starts now. Say your opening line, in character, naturally.)";
+      ws.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text:kick}]}], turnComplete:true}}));
     }
     return;
   }
@@ -621,8 +785,12 @@ $("#startBtn").onclick = async () => {
   try{ await startMic(); }
   catch(e){ setState("마이크를 쓸 수 없어요. 브라우저 주소창의 마이크 권한을 허용해 주세요."); $("#startBtn").disabled = false; return; }
   turns.length = 0; curMe = curTutor = null; kicked = false; resumeHandle = null; variant = 0; muted = false;
-  running = true; render();
-  $("#scenTitle").textContent = scen().ko; $("#scenSub").textContent = `${style().ko} · ${level().ko} · ${$("#liveModel").value}`;
+  activeLesson = mode==="lesson" ? findLesson(selLessonId) : null;
+  missionDone = activeLesson ? activeLesson.mission.map(() => false) : [];
+  phraseUsed = activeLesson ? activeLesson.phrases.map(() => false) : [];
+  sessionStart = Date.now();
+  running = true; render(); renderMission();
+  $("#scenTitle").textContent = persona().ko; $("#scenSub").textContent = `${style().ko} · ${level().ko} · ${$("#liveModel").value}`;
   $("#setupCard").hidden = true; $("#startBtn").hidden = true; $("#muteBtn").hidden = false; $("#endBtn").hidden = false;
   $("#caption").classList.toggle("veiled", $("#capMode").value==="hide");
   setState("연결하는 중…"); connect(); animate(); keepAwake();
@@ -639,7 +807,8 @@ $("#muteBtn").onclick = () => {
 };
 $("#caption").onclick = () => $("#caption").classList.remove("veiled");
 function teardown(){
-  running = false; setupDone = false;
+  markPracticed();
+  running = false; setupDone = false; $("#missionBox").hidden = true;
   try{ wakeLock && wakeLock.release(); }catch{} wakeLock = null;
   const w = ws; ws = null; try{ w && w.close(); }catch{}
   stopPlayback();
@@ -665,7 +834,7 @@ async function report(){
   const wait = el("p","pending","대화를 돌아보는 중…"); card.append(wait);
   const tx = turns.map(t => (t.role==="tutor" ? "Other: " : "Learner: ") + t.text).join("\n");
   try{
-    const r = await generate(`Review this live spoken role-play (${scen().ko}, style ${style().ko}, learner level ${level().id}) by a Korean adult learner. Learner lines are speech transcripts; ignore punctuation.
+    const r = await generate(`Review this live spoken role-play (${persona().ko}, style ${style().ko}, learner level ${level().id}) by a Korean adult learner. Learner lines are speech transcripts; ignore punctuation.
 
 ${tx}
 
@@ -699,7 +868,7 @@ document.addEventListener("keydown", e => { if (e.key==="Escape") $("#sheet").hi
 
 /* ---------- boot ---------- */
 const tpl = document.createElement("template"); tpl.id = "emptyTpl"; tpl.content.append($("#empty").cloneNode(true)); document.body.append(tpl);
-renderSaved();
+renderSaved(); setMode(mode); renderCourses(); renderStats();
 if (location.protocol === "file:") setState("start.bat으로 열어야 마이크가 안정적으로 동작해요.");
 else if (key()) loadModels();
 })();
