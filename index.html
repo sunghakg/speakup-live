@@ -101,6 +101,10 @@ details[open] summary{margin-bottom:10px}
 .note{color:var(--muted);font-size:13.5px}
 .local{border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:5px}
 .local .tag{color:var(--accent)}
+.suggest{border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:7px}
+.suggest .tag{color:var(--accent)}
+.suggest .sg p{margin:0;font-weight:600}
+.suggest .sg small{color:var(--muted);display:block;margin-top:2px}
 .pending{font-size:12.5px;color:var(--muted)}
 .saved{display:flex;flex-direction:column;gap:6px}
 .saved-item{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;align-items:start}
@@ -198,7 +202,10 @@ details[open] summary{margin-bottom:10px}
         </div>
         <div class="field"><p class="label">말투</p><select id="style"></select></div>
       </div>
-      <div class="field"><p class="label">레벨</p><select id="level"></select></div>
+      <div class="row2">
+        <div class="field"><p class="label">레벨</p><select id="level"></select></div>
+        <div class="field"><p class="label">바로 피드백</p><select id="coach"><option value="voice">말로도 바로 (영어)</option><option value="screen">화면에만</option></select></div>
+      </div>
       <div class="row2">
         <div class="field"><p class="label">목소리</p><select id="voice"></select></div>
         <div class="field"><p class="label">자막</p><select id="capMode"><option value="show">보이기</option><option value="hide">가리기(듣기 연습)</option></select></div>
@@ -325,6 +332,8 @@ $("#style").value = store.get("style","local");
 $("#level").value = store.get("level","intermediate");
 $("#voice").value = store.get("voice","Puck");
 $("#capMode").value = store.get("cap","show");
+$("#coach").value = store.get("coach","voice");
+$("#coach").addEventListener("change", () => store.set("coach", $("#coach").value));
 $("#scen").addEventListener("change", () => { const s = scen(); $("#style").value = s.style; save(); });
 ["style","level","voice","capMode"].forEach(id => $("#"+id).addEventListener("change", save));
 $("#apiKey").addEventListener("change", () => { save(); loadModels(); });
@@ -475,17 +484,25 @@ function fill(sel, list, pref){
 }
 
 /* ---------- prompts ---------- */
+const ENGLISH_ONLY = `LANGUAGE RULE (most important): speak ONLY English, every single turn, from the first word to the last. Never speak Korean or any other language, not even one word, even if the learner speaks Korean, mixes languages, asks you to, or their words come through sounding like another language. If they say something in Korean, answer in English: give them the natural English way to say it ("oh, in English you'd just say ...") and let them try it.`;
+function coachRule(){
+  return $("#coach").value==="voice"
+    ? `QUICK SPOKEN TIP: right after the learner speaks, if their line sounded unnatural, textbook-y or wrong, open your reply with ONE very short English tip, like a friend would ("Quick tip, you'd say: ..." or "Natives would say: ..."), say the better version once, then carry straight on with the conversation in character. If their line was fine, no tip, just keep talking. Never more than one tip per turn, never explain grammar.`
+    : `Do NOT correct their mistakes out loud; corrections are shown on their screen separately. Just keep the conversation flowing.`;
+}
 function lessonPrompt(L){
   const st = style(), l = level();
   return `You're running a short live speaking lesson with a Korean adult, by voice. It has two parts.
 
-Lesson: "${L.title}" — ${L.goal}
+Lesson: "${L.title}". Goals: ${L.mission.map(m => m[1]).join("; ")}.
 Key expressions:
-${L.phrases.map(([en,ko],i) => `${i+1}. "${en}" (${ko})`).join("\n")}
+${L.phrases.map(([en],i) => `${i+1}. "${en}"`).join("\n")}
 
 PART 1, quick warm-up (about two minutes): as a friendly, upbeat coach, say hi in one short sentence and tell them you'll warm up with a few phrases. Then for each key expression in order: say it once, naturally, the way people really say it (natural linking and stress), and have them say it back. Listen. If it was fine, react quickly ("nice", "yep, that's it", "perfect") and move to the next one. If one thing was off (a sound, the stress, linking, a missing word), point out just that in a few words, say it slowly once, then normally, and let them try again. Max two tries per phrase, then move on no matter what. No lectures, no grammar explanations.
 
-PART 2, role-play: say something like "Alright, let's try it for real" and become ${L.role}. From here on stay fully in character as a real person, not a tutor or an AI. Steer the scene naturally so they get chances to: ${L.mission.map(m => m[1]).join("; ")}. Don't correct them during the role-play (corrections show on their screen). If they're stuck, nudge them toward one of the key expressions, like a friend would. When the scene reaches a natural end, wrap it up in character, then step out briefly and tell them in one or two casual sentences what they did well and which phrase to keep practicing.
+PART 2, role-play: say something like "Alright, let's try it for real" and become ${L.role}. From here on stay fully in character as a real person, not a tutor or an AI. Steer the scene naturally so they get chances to: ${L.mission.map(m => m[1]).join("; ")}. ${coachRule()} If they're stuck, nudge them toward one of the key expressions, like a friend would. When the scene reaches a natural end, wrap it up in character, then step out briefly and tell them in one or two casual sentences what they did well and which phrase to keep practicing.
+
+${ENGLISH_ONLY}
 
 How you talk in the role-play: ${st.rule}
 ${l.rule}
@@ -497,6 +514,8 @@ function systemPrompt(){
   const s = persona(), st = style(), l = level();
   return `You're in a live voice conversation with a Korean adult who is practicing spoken English. Stay fully in character the whole time as ${s.role}. You are a real person in this scene, not a tutor and not an AI; never say you're an AI or a language model unless they directly ask.
 
+${ENGLISH_ONLY}
+
 How you talk: ${st.rule}
 ${l.rule}
 
@@ -506,32 +525,32 @@ Sound like a real human on a call, not an assistant:
 - Keep each turn short, like real conversation: one or two sentences, then let them talk. Never monologue.
 - React to what they actually said: give your own opinion, share a bit about your life, joke or tease a little, ask a follow-up. At most one question per turn.
 - Never praise their English, never repeat back what they said, never use lists or customer-service phrases ("Certainly!", "Great question!", "I'd be happy to").
-- Do NOT correct their mistakes; corrections are shown on their screen separately. Just keep the conversation flowing.
-- If they say something in Korean or ask how to say something, toss them the casual English phrase in passing ("oh, you'd just say ...") and keep going.
+- ${coachRule()}
+- If they ask how to say something, toss them the casual English phrase in passing ("oh, you'd just say ...") and keep going.
 - If they go quiet or seem stuck, help them out like a friend would: rephrase, or ask an easier question.
 
 Your opening line is something like: "${s.open}"`;
 }
-function feedbackPrompt(prevTutor, learner, nextTutor){
+function feedbackPrompt(prevTutor, learner){
   const s = persona(), st = style(), l = level();
   return `A Korean adult is practicing spoken English in a live voice role-play (${s.ko}; speaking style: ${st.ko}; level: ${l.id}). The learner's line came from automatic speech transcription, so ignore punctuation/capitalization and guess past obvious transcription glitches.
 
 Other person said: """${prevTutor}"""
-Learner said: """${learner}"""
-Other person replied: """${nextTutor}"""
+Learner replied: """${learner}"""
 
 ${activeLesson ? `This is part of a lesson. If the learner is just repeating a drill phrase after the coach, judge only whether the words match; set ok=true unless words are wrong or missing.
 Mission goals (0-based): ${activeLesson.mission.map((m,i) => i+": "+m[1]).join(" | ")}
 Key expressions (0-based): ${activeLesson.phrases.map((p,i) => i+": "+p[0]).join(" | ")}
 ` : ""}
-Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": string, "terms": [{"phrase": string, "ko": string}], "goals_done": [int], "phrases_used": [int]}
+Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": string, "suggest": [{"en": string, "ko": string}], "terms": [{"phrase": string, "ko": string}], "goals_done": [int], "phrases_used": [int]}
 - goals_done: ${activeLesson ? "indices of mission goals this learner line accomplishes during the role-play (not during the repeat-after-me drill). Be fair, not strict: a natural attempt counts." : "[]"}
 - phrases_used: ${activeLesson ? "indices of key expressions the learner used in their own words during the role-play (close variations count; drill repetitions don't)." : "[]"}
 - better: how a native speaker would ACTUALLY say the learner's line out loud here: casual, contractions, real everyday words. Never a stiff textbook sentence.
 - ok: true only if the learner's line already sounds like something a native would really say. Grammatically fine but stiff/textbook-y ("I am fine, thank you", "I am living in Honolulu", "It is very delicious") is ok=false.
 - notes_ko: 1-2 short Korean sentences on the single most important point and why natives say it that way. Casual Korean is fine.
-- local_say: ${st.id==="casual" ? '""' : "how a Hawaii local would say the learner's line in Pidgin-flavored English, authentic"}.
-- terms: Pidgin/Hawaiian words, slang or idioms in the other person's reply a Korean learner may not know, each with a short Korean meaning. [] if none.
+- local_say: ${!["local","pidgin"].includes(st.id) ? '""' : "how a Hawaii local would say the learner's line in Pidgin-flavored English, authentic"}.
+- suggest: 2 recommended expressions real natives would use in THIS moment of the conversation that the learner could say next or use instead (useful, reusable, natural; different from "better"), each with a short Korean meaning/usage tip.
+- terms: Pidgin/Hawaiian words, slang or idioms in what the other person said that a Korean learner may not know, each with a short Korean meaning. [] if none.
 - If the learner spoke Korean, better = natural casual English for it and ok=false.`;
 }
 async function generate(prompt){
@@ -563,31 +582,35 @@ function finalizeMe(){
   const t = curMe; curMe = null;
   t.text = t.text.replace(/\s+/g," ").trim();
   if (!t.text){ turns.splice(turns.indexOf(t),1); render(); return; }
-  t.waitReply = true; render();
+  runFeedback(t); render();
+}
+function prevTutorTurn(me){
+  for (let i = turns.indexOf(me)-1; i >= 0; i--) if (turns[i].role==="tutor") return turns[i];
+  return null;
+}
+function runFeedback(me){
+  const pt = prevTutorTurn(me);
+  me.checking = true; render();
+  generate(feedbackPrompt(pt ? pt.text : persona().open, me.text)).then(r => {
+    me.fb = {ok: !!r.ok, better: String(r.better||""), notes_ko: String(r.notes_ko||""), local_say: ["local","pidgin"].includes(style().id) ? String(r.local_say||"") : "",
+      suggest: Array.isArray(r.suggest) ? r.suggest.filter(x => x && x.en).slice(0,3).map(x => ({en:String(x.en), ko:String(x.ko||"")})) : []};
+    if (pt && !pt.terms) pt.terms = Array.isArray(r.terms) ? r.terms.filter(x => x && x.phrase).slice(0,6).map(x => ({phrase:String(x.phrase), ko:String(x.ko||"")})) : [];
+    if (activeLesson && running){
+      (Array.isArray(r.goals_done) ? r.goals_done : []).forEach(i => { if (Number.isInteger(i) && i >= 0 && i < missionDone.length) missionDone[i] = true; });
+      (Array.isArray(r.phrases_used) ? r.phrases_used : []).forEach(i => { if (Number.isInteger(i) && i >= 0 && i < phraseUsed.length) phraseUsed[i] = true; });
+      if (missionDone.every(Boolean) && !progress.done[activeLesson.id]){
+        progress.done[activeLesson.id] = today(); store.set("progress", progress); renderStats(); renderCourses();
+      }
+      renderMission();
+    }
+  }).catch(e => { me.fbErr = e.message==="rate" ? "무료 사용량 한도에 잠깐 걸렸어요. 이 문장은 교정을 건너뛰어요." : "교정을 못 받았어요."; })
+    .finally(() => { me.checking = false; render(); });
 }
 function finalizeTutor(){
   if (!curTutor) return;
   const t = curTutor; curTutor = null;
   t.text = t.text.replace(/\s+/g," ").trim();
   if (!t.text){ turns.splice(turns.indexOf(t),1); render(); return; }
-  // run feedback on the learner line that this tutor line answered
-  const idx = turns.indexOf(t), me = turns[idx-1];
-  if (me && me.role==="me" && me.waitReply){
-    me.waitReply = false; me.checking = true; render();
-    generate(feedbackPrompt(lastTutorText(me), me.text, t.text)).then(r => {
-      me.fb = {ok: !!r.ok, better: String(r.better||""), notes_ko: String(r.notes_ko||""), local_say: style().id==="casual" ? "" : String(r.local_say||"")};
-      t.terms = Array.isArray(r.terms) ? r.terms.filter(x => x && x.phrase).slice(0,6).map(x => ({phrase:String(x.phrase), ko:String(x.ko||"")})) : [];
-      if (activeLesson && running){
-        (Array.isArray(r.goals_done) ? r.goals_done : []).forEach(i => { if (Number.isInteger(i) && i >= 0 && i < missionDone.length) missionDone[i] = true; });
-        (Array.isArray(r.phrases_used) ? r.phrases_used : []).forEach(i => { if (Number.isInteger(i) && i >= 0 && i < phraseUsed.length) phraseUsed[i] = true; });
-        if (missionDone.every(Boolean) && !progress.done[activeLesson.id]){
-          progress.done[activeLesson.id] = today(); store.set("progress", progress); renderStats(); renderCourses();
-        }
-        renderMission();
-      }
-    }).catch(e => { me.fbErr = e.message==="rate" ? "무료 사용량 한도에 잠깐 걸렸어요. 이 문장은 교정을 건너뛰어요." : "교정을 못 받았어요."; })
-      .finally(() => { me.checking = false; render(); });
-  }
   render();
 }
 
@@ -623,6 +646,15 @@ function fbCard(fb, original){
   else if (fb.ok && fb.better && fb.better.trim().toLowerCase() !== original.trim().toLowerCase()){ const d = el("div","diff"); d.append("이렇게도: ", el("ins",null,fb.better)); c.append(d); }
   if (fb.notes_ko) c.append(el("div","note",fb.notes_ko));
   if (fb.better){ const r = el("div","tools"); r.append(chip("듣기",() => sayLocal(fb.better)), chip(isSaved(fb.better)?"저장됨":"저장",() => toggleSave(fb.better, fb.notes_ko), isSaved(fb.better))); c.append(r); }
+  if (fb.suggest && fb.suggest.length){
+    const sg = el("div","suggest"); sg.append(el("span","tag","추천 표현"));
+    fb.suggest.forEach(x => {
+      const it = el("div","sg"); it.append(el("p",null,x.en));
+      const r = el("div","tools"); r.append(chip("듣기",() => sayLocal(x.en)), chip(isSaved(x.en)?"저장됨":"저장",() => { if (!isSaved(x.en)) toggleSave(x.en, x.ko); }, isSaved(x.en)));
+      it.append(r); if (x.ko) it.append(el("small",null,x.ko)); sg.append(it);
+    });
+    c.append(sg);
+  }
   if (fb.local_say){
     const lb = el("div","local"); lb.append(el("span","tag","로컬은 이렇게"), el("div",null,fb.local_say));
     const r = el("div","tools"); r.append(chip(isSaved(fb.local_say)?"저장됨":"저장",() => toggleSave(fb.local_say,"하와이 로컬 버전"), isSaved(fb.local_say))); lb.append(r); c.append(lb);
@@ -722,7 +754,8 @@ function buildSetup(){
     contextWindowCompression: {slidingWindow: {}},
     sessionResumption: resumeHandle ? {handle: resumeHandle} : {},
   };
-  if (variant < 2) base.realtimeInputConfig = {automaticActivityDetection:{endOfSpeechSensitivity:"END_SENSITIVITY_LOW", silenceDurationMs:800}};
+  if (variant < 2) gen.speechConfig.languageCode = "en-US";
+  if (variant < 4) base.realtimeInputConfig = {automaticActivityDetection:{endOfSpeechSensitivity:"END_SENSITIVITY_LOW", silenceDurationMs:800}};
   return {setup: VARIANTS[variant % 2](base, gen)};
 }
 function connect(){
@@ -739,7 +772,7 @@ function connect(){
     if (myWs !== ws) return;
     if (!running) return;
     if (!setupDone){
-      if (variant < 3){ variant++; connect(); return; }
+      if (variant < 5){ variant++; connect(); return; }
       fail("대화 서버에 연결하지 못했어요. " + (ev.reason || ("코드 " + ev.code)) + " · 고급 설정에서 다른 음성 모델을 골라보세요.");
       return;
     }
