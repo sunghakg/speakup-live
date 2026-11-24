@@ -344,7 +344,7 @@ function save(){
   store.set("key", $("#apiKey").value.trim()); store.set("scen",$("#scen").value); store.set("style",$("#style").value);
   store.set("level",$("#level").value); store.set("voice",$("#voice").value); store.set("cap",$("#capMode").value);
   if ($("#liveModel").value) store.set("liveModel",$("#liveModel").value);
-  if ($("#textModel").value) store.set("textModel",$("#textModel").value);
+  if ($("#textModel").value) store.set("textModel2",$("#textModel").value);
 }
 const scen = () => SCENARIOS.find(s => s.id===$("#scen").value) || SCENARIOS[0];
 
@@ -459,7 +459,8 @@ function rankLive(n){
 function rankText(n){
   if (/image|tts|live|audio|embed|vision|aqa|thinking|learnlm|gemma|robotics|computer/.test(n)) return -1;
   if (!/flash/.test(n)) return -1;
-  let s = 0; if (/flash-latest/.test(n)) s += 3; if (!/lite/.test(n)) s += 2; if (/preview|exp/.test(n)) s -= 1;
+  // lite models get the biggest free quota and are plenty for quick corrections
+  let s = 0; if (/lite/.test(n)) s += 3; if (/preview|exp/.test(n)) s -= 2; if (/-latest/.test(n)) s -= 1;
   const v = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/)||[])[1]||0); return s + v/10;
 }
 async function loadModels(force){
@@ -472,7 +473,7 @@ async function loadModels(force){
     const live = ms.filter(m => (m.supportedGenerationMethods||[]).includes("bidiGenerateContent")).map(names).filter(n => rankLive(n) >= 0).sort((a,b) => rankLive(b)-rankLive(a));
     const text = ms.filter(m => (m.supportedGenerationMethods||[]).includes("generateContent")).map(names).filter(n => rankText(n) >= 0).sort((a,b) => rankText(b)-rankText(a));
     fill($("#liveModel"), live, store.get("liveModel",""));
-    fill($("#textModel"), text, store.get("textModel",""));
+    fill($("#textModel"), text, store.get("textModel2",""));
     if (!live.length){ setState("이 키로 쓸 수 있는 실시간 음성 모델이 없어요."); return false; }
     setState("준비됐어요. 대화 시작을 누르세요.");
     return true;
@@ -553,18 +554,53 @@ Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": 
 - terms: Pidgin/Hawaiian words, slang or idioms in what the other person said that a Korean learner may not know, each with a short Korean meaning. [] if none.
 - If the learner spoke Korean, better = natural casual English for it and ok=false.`;
 }
-async function generate(prompt){
-  const model = $("#textModel").value;
-  if (!model) throw new Error("no_model");
+// Free-tier friendly: space calls out, back off on 429, then fall back to other text models (each has its own quota).
+let genChain = Promise.resolve(), lastGenAt = 0;
+const GEN_GAP_MS = 4500;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const coolUntil = {};
+function textModels(){
+  const sel = $("#textModel"), first = sel.value;
+  return [first, ...[...sel.options].map(o => o.value).filter(v => v && v !== first)].filter(Boolean);
+}
+async function callModel(model, prompt){
   const r = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
     method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":key()},
     body: JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}], generationConfig:{responseMimeType:"application/json", temperature:0.4}})
   });
-  if (r.status===429) throw new Error("rate");
+  if (r.status===429){
+    let wait = 20000;
+    try{ const j = await r.json(); const d = (j.error?.details||[]).find(x => x.retryDelay); if (d) wait = Math.ceil(parseFloat(d.retryDelay)*1000) || wait; }catch{}
+    const e = new Error("rate"); e.wait = wait; throw e;
+  }
   if (!r.ok) throw new Error("http "+r.status);
   const j = await r.json();
   const t = (j.candidates?.[0]?.content?.parts||[]).filter(p => !p.thought).map(p => p.text||"").join("");
   return JSON.parse(t.replace(/^```(?:json)?\s*|\s*```$/g,""));
+}
+async function generateNow(prompt){
+  const models = textModels();
+  if (!models.length) throw new Error("no_model");
+  let shortest = Infinity;
+  for (let round = 0; round < 2; round++){
+    for (const m of models.slice(0, 4)){
+      if ((coolUntil[m]||0) > Date.now()){ shortest = Math.min(shortest, coolUntil[m]-Date.now()); continue; }
+      const gap = lastGenAt + GEN_GAP_MS - Date.now(); if (gap > 0) await sleep(gap);
+      lastGenAt = Date.now();
+      try{ return await callModel(m, prompt); }
+      catch(e){
+        if (e.message !== "rate") throw e;
+        coolUntil[m] = Date.now() + e.wait; shortest = Math.min(shortest, e.wait);
+      }
+    }
+    if (round === 0 && shortest <= 15000) await sleep(shortest + 300); else break;
+  }
+  throw new Error("rate");
+}
+function generate(prompt){
+  const p = genChain.then(() => generateNow(prompt));
+  genChain = p.catch(() => {});
+  return p;
 }
 
 /* ---------- transcript state ---------- */
@@ -590,6 +626,7 @@ function prevTutorTurn(me){
 }
 function runFeedback(me){
   const pt = prevTutorTurn(me);
+  if (me.text.split(/\s+/).filter(Boolean).length < 3 && !(activeLesson && running)) return;
   me.checking = true; render();
   generate(feedbackPrompt(pt ? pt.text : persona().open, me.text)).then(r => {
     me.fb = {ok: !!r.ok, better: String(r.better||""), notes_ko: String(r.notes_ko||""), local_say: ["local","pidgin"].includes(style().id) ? String(r.local_say||"") : "",
@@ -603,7 +640,7 @@ function runFeedback(me){
       }
       renderMission();
     }
-  }).catch(e => { me.fbErr = e.message==="rate" ? "무료 사용량 한도에 잠깐 걸렸어요. 이 문장은 교정을 건너뛰어요." : "교정을 못 받았어요."; })
+  }).catch(e => { me.fbErr = e.message==="rate" ? "무료 한도라 이 문장 교정은 건너뛰었어요. 대화는 계속돼요." : "교정을 못 받았어요."; })
     .finally(() => { me.checking = false; render(); });
 }
 function finalizeTutor(){
