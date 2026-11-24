@@ -263,6 +263,12 @@ const SCENARIOS = [
   {id:"hotel", ko:"호텔 프런트 (체크인·불만)", style:"casual", name:"Front desk",
    role:"a hotel front desk clerk; the learner may check in or complain about the room",
    open:"Hey, good evening! Checking in?"},
+  {id:"bizcoffee", ko:"비즈니스 커피챗 (업계 지인)", style:"business", name:"Daniel",
+   role:"Daniel, a friendly director at a partner company the learner is meeting for a coffee chat; he likes to chat a bit before getting to business",
+   open:"Hey, good to finally meet in person! Did you find the place okay?"},
+  {id:"networking", ko:"컨퍼런스 네트워킹", style:"business", name:"Rachel",
+   role:"Rachel, a product manager at a tech company, standing near the coffee station at an industry conference, open to meeting new people",
+   open:"These lines are brutal, huh? Is this your first time at this conference?"},
   {id:"interview", ko:"영어 면접", style:"casual", name:"Hiring manager",
    role:"a relaxed but sharp hiring manager in the learner's field",
    open:"Hey, thanks for coming in. So, tell me a little about yourself."},
@@ -277,6 +283,7 @@ const SCENARIOS = [
    open:"Hi, come on in, have a seat. So what's going on?"},
 ];
 const STYLES = [
+  {id:"business", ko:"비즈니스 스몰토크", rule:"Natural American workplace English, the way people actually chat with coworkers, clients and people at industry events: warm, relaxed and polite, never stiff or textbook, light humor is fine, avoid heavy corporate jargon. Use real small-talk moves: open with an easy topic, ask follow-up questions, share a little about yourself, and steer smoothly between chit-chat and work."},
   {id:"casual", ko:"원어민 일상", rule:"Everyday casual American English, the way friends and coworkers actually talk."},
   {id:"local", ko:"하와이 로컬", rule:`You are a Hawaii local born and raised, and you sound like one: relaxed local accent and rhythm, mostly easy-to-follow English sprinkled with the Pidgin (Hawaii Creole English) and Hawaiian words locals really use: howzit, brah, shoots, da kine, pau, pau hana, ono, broke da mouth, grindz, choke (= a lot), stay (= is/are, "where you stay?"), like (= want, "you like try?"), k den, garans, bumbye, fo' real, mahalo, talk story, ohana, and "...yeah?" at the end of sentences. A few local touches per turn, naturally.`},
   {id:"pidgin", ko:"진한 피진", rule:`Speak thick, authentic Hawaii Pidgin like an old-timer local, with the accent and rhythm: Pidgin grammar (stay for be/-ing, wen for past tense, going for future, get for "there is", no can, like for want, da/dis/dat/ova dea, dropping "is"), plus local and Hawaiian words. Still keep it understandable for a learner: short sentences, no obscure words.`},
@@ -336,7 +343,7 @@ const scen = () => SCENARIOS.find(s => s.id===$("#scen").value) || SCENARIOS[0];
 const COURSES = window.SPEAKUP_COURSES || [];
 const ALL_LESSONS = COURSES.flatMap(c => c.lessons.map(l => ({...l, course: c.id, courseKo: c.ko, style: l.style || c.style})));
 let mode = store.get("mode","lesson");
-let selLessonId = store.get("lesson", ALL_LESSONS[0] && ALL_LESSONS[0].id);
+let selLessonId = store.get("lesson2", ALL_LESSONS[0] && ALL_LESSONS[0].id);
 let activeLesson = null, missionDone = [], phraseUsed = [], sessionStart = 0;
 let progress = store.get("progress", {done:{}, days:[], minutes:0});
 const findLesson = id => ALL_LESSONS.find(l => l.id===id) || null;
@@ -377,7 +384,7 @@ function renderCourses(){
       b.append(el("span","ck", progress.done[l.id] ? "✓" : ""));
       const t = el("div"); const bt = el("b",null,l.ko); if (next && next.id===l.id) bt.append(el("span","next","다음"));
       t.append(bt, el("span",null,l.title)); b.append(t);
-      b.onclick = () => { selLessonId = l.id; store.set("lesson", l.id); renderCourses(); detailEl.scrollIntoView({block:"nearest", behavior:"smooth"}); };
+      b.onclick = () => { selLessonId = l.id; store.set("lesson2", l.id); renderCourses(); detailEl.scrollIntoView({block:"nearest", behavior:"smooth"}); };
       list.append(b);
       if (l.id === selLessonId) list.append(detailEl);
     });
