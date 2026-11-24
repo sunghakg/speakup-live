@@ -108,6 +108,8 @@ details[open] summary{margin-bottom:10px}
 .suggest{border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:7px}
 .suggest .tag{color:var(--accent)}
 .suggest .sg p{margin:0;font-weight:600}
+.suggest .tone{font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 7px;margin-right:7px;vertical-align:2px;font-weight:500}
+.variety{background:var(--accent-soft);border-radius:8px;padding:7px 10px;font-size:13.5px}
 .suggest .sg small{color:var(--muted);display:block;margin-top:2px}
 .pending{font-size:12.5px;color:var(--muted)}
 .saved{display:flex;flex-direction:column;gap:6px}
@@ -245,7 +247,7 @@ details[open] summary{margin-bottom:10px}
 
 <div class="sheet" id="sheet" hidden><div class="sheet-card" id="sheetCard"></div></div>
 
-<script src="lessons.js"></script>
+<script src="lessons.js?v=4"></script>
 <script>
 (() => {
 "use strict";
@@ -492,7 +494,7 @@ function fill(sel, list, pref){
 const ENGLISH_ONLY = `LANGUAGE RULE (most important): speak ONLY English, every single turn, from the first word to the last. Never speak Korean or any other language, not even one word, even if the learner speaks Korean, mixes languages, asks you to, or their words come through sounding like another language. If they say something in Korean, answer in English: give them the natural English way to say it ("oh, in English you'd just say ...") and let them try it.`;
 function coachRule(){
   return $("#coach").value==="voice"
-    ? `QUICK SPOKEN TIP: right after the learner speaks, if their line sounded unnatural, textbook-y or wrong, open your reply with ONE very short English tip, like a friend would ("Quick tip, you'd say: ..." or "Natives would say: ..."), say the better version once, then carry straight on with the conversation in character. If their line was fine, no tip, just keep talking. Never more than one tip per turn, never explain grammar.`
+    ? `QUICK SPOKEN TIP: right after the learner speaks, if their line sounded unnatural, textbook-y or wrong, open your reply with ONE very short English tip, like a friend would ("Quick tip, you'd say: ..." or "Natives would say: ..."), say the better version once, then carry straight on with the conversation in character. If their line was fine but plain, now and then (not every turn) toss a fresher way to say it in passing ("or you could say ..."). If they keep leaning on the same words (good, very, nice, I think), call it out once, playfully, with a swap. Never more than one tip per turn, never explain grammar.`
     : `Do NOT correct their mistakes out loud; corrections are shown on their screen separately. Just keep the conversation flowing.`;
 }
 function lessonPrompt(L){
@@ -503,9 +505,9 @@ Lesson: "${L.title}". Goals: ${L.mission.map(m => m[1]).join("; ")}.
 Key expressions:
 ${L.phrases.map(([en],i) => `${i+1}. "${en}"`).join("\n")}
 
-PART 1, quick warm-up (about two minutes): as a friendly, upbeat coach, say hi in one short sentence and tell them you'll warm up with a few phrases. Then for each key expression in order: say it once, naturally, the way people really say it (natural linking and stress), and have them say it back. Listen. If it was fine, react quickly ("nice", "yep, that's it", "perfect") and move to the next one. If one thing was off (a sound, the stress, linking, a missing word), point out just that in a few words, say it slowly once, then normally, and let them try again. Max two tries per phrase, then move on no matter what. No lectures, no grammar explanations.
+PART 1, quick warm-up (about two minutes): as a friendly, upbeat coach, say hi in one short sentence and tell them you'll warm up with a few phrases. Then for each key expression in order: say it once, naturally, the way people really say it (natural linking and stress), and have them say it back. Listen. If it was fine, react quickly (vary it: "nice", "yep, that's it", "perfect", "nailed it", "sounds natural") and give ONE alternative way natives also say it ("you'll also hear: ..."), then move to the next one. If one thing was off (a sound, the stress, linking, a missing word), point out just that in a few words, say it slowly once, then normally, and let them try again. Max two tries per phrase, then move on no matter what. No lectures, no grammar explanations.
 
-PART 2, role-play: say something like "Alright, let's try it for real" and become ${L.role}. From here on stay fully in character as a real person, not a tutor or an AI. Steer the scene naturally so they get chances to: ${L.mission.map(m => m[1]).join("; ")}. ${coachRule()} If they're stuck, nudge them toward one of the key expressions, like a friend would. When the scene reaches a natural end, wrap it up in character, then step out briefly and tell them in one or two casual sentences what they did well and which phrase to keep practicing.
+PART 2, role-play: say something like "Alright, let's try it for real" and become ${L.role}. From here on stay fully in character as a real person, not a tutor or an AI. Steer the scene naturally so they get chances to: ${L.mission.map(m => m[1]).join("; ")}. ${coachRule()} If they're stuck, nudge them toward one of the key expressions, like a friend would. When the scene reaches a natural end, wrap it up in character, then step out for a quick LEVEL-UP round: pick one or two of their plainest lines from the role-play, say "you said ... , try saying it with more flavor", give them one richer version, and have them say it back. Then tell them in one casual sentence what they did well.
 
 ${ENGLISH_ONLY}
 
@@ -536,24 +538,29 @@ Sound like a real human on a call, not an assistant:
 
 Your opening line is something like: "${s.open}"`;
 }
-function feedbackPrompt(prevTutor, learner){
+function feedbackPrompt(prevTutor, learner, recent){
   const s = persona(), st = style(), l = level();
   return `A Korean adult is practicing spoken English in a live voice role-play (${s.ko}; speaking style: ${st.ko}; level: ${l.id}). The learner's line came from automatic speech transcription, so ignore punctuation/capitalization and guess past obvious transcription glitches.
 
 Other person said: """${prevTutor}"""
 Learner replied: """${learner}"""
+${recent && recent.length ? `The learner's earlier lines in this conversation (to spot repetitive, flat wording):
+${recent.map(x => "- "+x).join(" | ")}
+` : ""}
 
 ${activeLesson ? `This is part of a lesson. If the learner is just repeating a drill phrase after the coach, judge only whether the words match; set ok=true unless words are wrong or missing.
 Mission goals (0-based): ${activeLesson.mission.map((m,i) => i+": "+m[1]).join(" | ")}
 Key expressions (0-based): ${activeLesson.phrases.map((p,i) => i+": "+p[0]).join(" | ")}
 ` : ""}
-Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": string, "suggest": [{"en": string, "ko": string}], "terms": [{"phrase": string, "ko": string}], "goals_done": [int], "phrases_used": [int]}
+Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": string, "suggest": [{"en": string, "ko": string}], "upgrade": [{"en": string, "tone": string, "ko": string}], "variety_ko": string, "terms": [{"phrase": string, "ko": string}], "goals_done": [int], "phrases_used": [int]}
 - goals_done: ${activeLesson ? "indices of mission goals this learner line accomplishes during the role-play (not during the repeat-after-me drill). Be fair, not strict: a natural attempt counts." : "[]"}
 - phrases_used: ${activeLesson ? "indices of key expressions the learner used in their own words during the role-play (close variations count; drill repetitions don't)." : "[]"}
 - better: how a native speaker would ACTUALLY say the learner's line out loud here: casual, contractions, real everyday words. Never a stiff textbook sentence.
 - ok: true only if the learner's line already sounds like something a native would really say. Grammatically fine but stiff/textbook-y ("I am fine, thank you", "I am living in Honolulu", "It is very delicious") is ok=false.
 - notes_ko: 1-2 short Korean sentences on the single most important point and why natives say it that way. Casual Korean is fine.
 - local_say: ${!["local","pidgin"].includes(st.id) ? '""' : "how a Hawaii local would say the learner's line in Pidgin-flavored English, authentic"}.
+- upgrade: 2 richer ways to say the SAME thing the learner meant, more vivid and varied than plain words (good, nice, very, really, I think, so, yes, fun, interesting). Different from "better". tone = one short English label like "casual", "warm", "polished", "playful". Give these even when ok=true; skip only for repeat-after-me drill lines ([]).
+- variety_ko: if the learner keeps reusing the same plain words or sentence pattern (in this line or across their earlier lines), one short casual Korean sentence naming it and giving 2-3 fresh English swaps, e.g. "very good을 계속 쓰고 있어요. awesome, solid, really nice로 바꿔봐요". Otherwise "".
 - suggest: 2 recommended expressions real natives would use in THIS moment of the conversation that the learner could say next or use instead (useful, reusable, natural; different from "better"), each with a short Korean meaning/usage tip.
 - terms: Pidgin/Hawaiian words, slang or idioms in what the other person said that a Korean learner may not know, each with a short Korean meaning. [] if none.
 - If the learner spoke Korean, better = natural casual English for it and ok=false.`;
@@ -632,8 +639,11 @@ function runFeedback(me){
   const pt = prevTutorTurn(me);
   if (me.text.split(/\s+/).filter(Boolean).length < 3 && !(activeLesson && running)) return;
   me.checking = true; render();
-  generate(feedbackPrompt(pt ? pt.text : persona().open, me.text)).then(r => {
+  const recent = turns.filter(t => t.role==="me" && t !== me && t.text).slice(-6).map(t => t.text);
+  generate(feedbackPrompt(pt ? pt.text : persona().open, me.text, recent)).then(r => {
     me.fb = {ok: !!r.ok, better: String(r.better||""), notes_ko: String(r.notes_ko||""), local_say: ["local","pidgin"].includes(style().id) ? String(r.local_say||"") : "",
+      upgrade: Array.isArray(r.upgrade) ? r.upgrade.filter(x => x && x.en).slice(0,3).map(x => ({en:String(x.en), tone:String(x.tone||""), ko:String(x.ko||"")})) : [],
+      variety_ko: String(r.variety_ko||""),
       suggest: Array.isArray(r.suggest) ? r.suggest.filter(x => x && x.en).slice(0,3).map(x => ({en:String(x.en), ko:String(x.ko||"")})) : []};
     if (pt && !pt.terms) pt.terms = Array.isArray(r.terms) ? r.terms.filter(x => x && x.phrase).slice(0,6).map(x => ({phrase:String(x.phrase), ko:String(x.ko||"")})) : [];
     if (activeLesson && running){
@@ -687,6 +697,16 @@ function fbCard(fb, original){
   else if (fb.ok && fb.better && fb.better.trim().toLowerCase() !== original.trim().toLowerCase()){ const d = el("div","diff"); d.append("이렇게도: ", el("ins",null,fb.better)); c.append(d); }
   if (fb.notes_ko) c.append(el("div","note",fb.notes_ko));
   if (fb.better){ const r = el("div","tools"); r.append(chip("듣기",() => sayLocal(fb.better)), chip(isSaved(fb.better)?"저장됨":"저장",() => toggleSave(fb.better, fb.notes_ko), isSaved(fb.better))); c.append(r); }
+  if (fb.upgrade && fb.upgrade.length){
+    const ug = el("div","suggest"); ug.append(el("span","tag","다르게 말하기 · 더 풍부하게"));
+    fb.upgrade.forEach(x => {
+      const it = el("div","sg"); const p = el("p"); if (x.tone) p.append(el("span","tone",x.tone)); p.append(document.createTextNode(x.en)); it.append(p);
+      const r = el("div","tools"); r.append(chip("듣기",() => sayLocal(x.en)), chip(isSaved(x.en)?"저장됨":"저장",() => { if (!isSaved(x.en)) toggleSave(x.en, x.ko); }, isSaved(x.en)));
+      it.append(r); if (x.ko) it.append(el("small",null,x.ko)); ug.append(it);
+    });
+    c.append(ug);
+  }
+  if (fb.variety_ko) c.append(el("div","variety",fb.variety_ko));
   if (fb.suggest && fb.suggest.length){
     const sg = el("div","suggest"); sg.append(el("span","tag","추천 표현"));
     fb.suggest.forEach(x => {
@@ -919,13 +939,18 @@ async function report(){
 
 ${tx}
 
-Return JSON: {"overall_ko": string (2-3 honest, encouraging Korean sentences), "scores": {"grammar": 1-10, "vocabulary": 1-10, "fluency": 1-10}, "strengths_ko": [up to 3], "focus_ko": [up to 3 most important patterns to fix, each with a tiny English example], "phrases": [3-5 things real people actually say in this situation (casual, never textbook${style().id==="casual" ? "" : "; include Hawaii local / Pidgin ones"}), each {"en": string, "ko": string}]}`);
+Return JSON: {"overall_ko": string (2-3 honest, encouraging Korean sentences), "scores": {"grammar": 1-10, "vocabulary": 1-10, "fluency": 1-10}, "strengths_ko": [up to 3], "repeats": [up to 4 plain words or patterns the learner leaned on too much, each {"word": string, "count": int, "try": [3 fresher natural English alternatives]}], "focus_ko": [up to 3 most important patterns to fix, each with a tiny English example], "phrases": [3-5 things real people actually say in this situation (casual, never textbook${style().id==="casual" ? "" : "; include Hawaii local / Pidgin ones"}), each {"en": string, "ko": string}]}`);
     wait.remove();
     const sc = el("div","scores");
     [["grammar","문법"],["vocabulary","어휘"],["fluency","유창성"]].forEach(([k,ko]) => { const b = el("div","score"); b.append(el("b",null,String(r?.scores?.[k] ?? "–")), el("span",null,ko+" / 10")); sc.append(b); });
     card.append(sc, el("p",null,String(r.overall_ko||"")));
     const list = (title, arr) => { if (!Array.isArray(arr) || !arr.length) return; card.append(el("p","label",title)); const ul = el("ul"); arr.forEach(x => ul.append(el("li",null,String(x)))); card.append(ul); };
     list("잘한 점", r.strengths_ko); list("다음에 집중할 것", r.focus_ko);
+    if (Array.isArray(r.repeats) && r.repeats.length){
+      card.append(el("p","label","자주 반복한 말 → 이렇게 바꿔봐요"));
+      r.repeats.forEach(x => { if (!x || !x.word) return; const it = el("div","saved-item");
+        it.append(el("p",null,`${String(x.word)}${x.count ? " ×"+Number(x.count) : ""} → ${(Array.isArray(x.try)?x.try:[]).map(String).join(" · ")}`)); card.append(it); });
+    }
     if (Array.isArray(r.phrases)){ card.append(el("p","label","다음에 써볼 표현")); r.phrases.forEach(p => {
       const en = String(p.en||""), ko = String(p.ko||""); const it = el("div","saved-item"); it.append(el("p",null,en));
       const tl = el("div","tools"); tl.append(chip("듣기",() => sayLocal(en)), chip(isSaved(en)?"저장됨":"저장",() => { if (!isSaved(en)) toggleSave(en, ko); })); it.append(tl);
