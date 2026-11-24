@@ -109,6 +109,12 @@ details[open] summary{margin-bottom:10px}
 .suggest .tag{color:var(--accent)}
 .suggest .sg p{margin:0;font-weight:600}
 .suggest .tone{font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 7px;margin-right:7px;vertical-align:2px;font-weight:500}
+.pron{border-top:1px dashed var(--line);padding-top:8px;display:flex;flex-direction:column;gap:7px}
+.pron-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pron .tag{color:var(--accent)}
+.pscore{font-family:var(--f-mono);font-size:12px;border-radius:99px;padding:2px 9px;font-weight:500}
+.pscore.good{background:var(--accent-soft);color:var(--accent)} .pscore.mid{background:#FFF1D6;color:#9A6200} .pscore.low{background:#FFE1D8;color:#B23A12}
+.pron .pi p{margin:0} .pron .pi i{font-style:normal;color:var(--warn)} .pron .pi small{color:var(--muted);display:block;margin-top:2px}
 .variety{background:var(--accent-soft);border-radius:8px;padding:7px 10px;font-size:13.5px}
 .suggest .sg small{color:var(--muted);display:block;margin-top:2px}
 .pending{font-size:12.5px;color:var(--muted)}
@@ -494,7 +500,7 @@ function fill(sel, list, pref){
 const ENGLISH_ONLY = `LANGUAGE RULE (most important): speak ONLY English, every single turn, from the first word to the last. Never speak Korean or any other language, not even one word, even if the learner speaks Korean, mixes languages, asks you to, or their words come through sounding like another language. If they say something in Korean, answer in English: give them the natural English way to say it ("oh, in English you'd just say ...") and let them try it.`;
 function coachRule(){
   return $("#coach").value==="voice"
-    ? `QUICK SPOKEN TIP: right after the learner speaks, if their line sounded unnatural, textbook-y or wrong, open your reply with ONE very short English tip, like a friend would ("Quick tip, you'd say: ..." or "Natives would say: ..."), say the better version once, then carry straight on with the conversation in character. If their line was fine but plain, now and then (not every turn) toss a fresher way to say it in passing ("or you could say ..."). If they keep leaning on the same words (good, very, nice, I think), call it out once, playfully, with a swap. Never more than one tip per turn, never explain grammar.`
+    ? `QUICK SPOKEN TIP: right after the learner speaks, if their line sounded unnatural, textbook-y or wrong, open your reply with ONE very short English tip, like a friend would ("Quick tip, you'd say: ..." or "Natives would say: ..."), say the better version once, then carry straight on with the conversation in character. If their line was fine but plain, now and then (not every turn) toss a fresher way to say it in passing ("or you could say ..."). If they keep leaning on the same words (good, very, nice, I think), call it out once, playfully, with a swap. If a word came out mispronounced enough to sound off (r/l, f/p, v/b, th, vowel length, stress), the tip can be about that sound instead: say the word slowly once, then normally ("it's 'world', curl the tongue a bit"). Never more than one tip per turn, never explain grammar.`
     : `Do NOT correct their mistakes out loud; corrections are shown on their screen separately. Just keep the conversation flowing.`;
 }
 function lessonPrompt(L){
@@ -538,7 +544,7 @@ Sound like a real human on a call, not an assistant:
 
 Your opening line is something like: "${s.open}"`;
 }
-function feedbackPrompt(prevTutor, learner, recent){
+function feedbackPrompt(prevTutor, learner, recent, withAudio){
   const s = persona(), st = style(), l = level();
   return `A Korean adult is practicing spoken English in a live voice role-play (${s.ko}; speaking style: ${st.ko}; level: ${l.id}). The learner's line came from automatic speech transcription, so ignore punctuation/capitalization and guess past obvious transcription glitches.
 
@@ -552,13 +558,14 @@ ${activeLesson ? `This is part of a lesson. If the learner is just repeating a d
 Mission goals (0-based): ${activeLesson.mission.map((m,i) => i+": "+m[1]).join(" | ")}
 Key expressions (0-based): ${activeLesson.phrases.map((p,i) => i+": "+p[0]).join(" | ")}
 ` : ""}
-Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": string, "suggest": [{"en": string, "ko": string}], "upgrade": [{"en": string, "tone": string, "ko": string}], "variety_ko": string, "terms": [{"phrase": string, "ko": string}], "goals_done": [int], "phrases_used": [int]}
+Return JSON: {"ok": boolean, "better": string, "notes_ko": string, "local_say": string, "suggest": [{"en": string, "ko": string}], "upgrade": [{"en": string, "tone": string, "ko": string}], "variety_ko": string, "pron_score": int, "pron": [{"word": string, "heard": string, "tip_ko": string}], "terms": [{"phrase": string, "ko": string}], "goals_done": [int], "phrases_used": [int]}
 - goals_done: ${activeLesson ? "indices of mission goals this learner line accomplishes during the role-play (not during the repeat-after-me drill). Be fair, not strict: a natural attempt counts." : "[]"}
 - phrases_used: ${activeLesson ? "indices of key expressions the learner used in their own words during the role-play (close variations count; drill repetitions don't)." : "[]"}
 - better: how a native speaker would ACTUALLY say the learner's line out loud here: casual, contractions, real everyday words. Never a stiff textbook sentence.
 - ok: true only if the learner's line already sounds like something a native would really say. Grammatically fine but stiff/textbook-y ("I am fine, thank you", "I am living in Honolulu", "It is very delicious") is ok=false.
 - notes_ko: 1-2 short Korean sentences on the single most important point and why natives say it that way. Casual Korean is fine.
 - local_say: ${!["local","pidgin"].includes(st.id) ? '""' : "how a Hawaii local would say the learner's line in Pidgin-flavored English, authentic"}.
+- pron_score / pron: ${withAudio ? `the learner's recording of this line is attached (it may start or end with a little silence or background noise; ignore other voices). Listen carefully and judge PRONUNCIATION. pron_score 1-10 for how clear and natural it sounded (8+ = easy for natives to understand, 10 = native-like). pron: up to 3 most important issues, each {"word": the English word or short chunk, "heard": how it actually sounded in a simple respelling (e.g. "pree-ty" or "rait" for "light"), "tip_ko": one short Korean tip on the mouth/tongue/stress/linking fix}. Typical Korean-speaker issues to listen for: r vs l, f vs p, v vs b, th, z vs j, short vs long vowels (ship/sheep), dropped or added final sounds (an extra "eu" after consonants), flat word stress or sentence rhythm, missing linking. Don't nitpick a light accent; flag what hurts clarity or sounds clearly foreign. If it sounded good or the audio is unusable, pron: [].` : 'no audio; pron_score 0 and pron [].'}
 - upgrade: 2 richer ways to say the SAME thing the learner meant, more vivid and varied than plain words (good, nice, very, really, I think, so, yes, fun, interesting). Different from "better". tone = one short English label like "casual", "warm", "polished", "playful". Give these even when ok=true; skip only for repeat-after-me drill lines ([]).
 - variety_ko: if the learner keeps reusing the same plain words or sentence pattern (in this line or across their earlier lines), one short casual Korean sentence naming it and giving 2-3 fresh English swaps, e.g. "very good을 계속 쓰고 있어요. awesome, solid, really nice로 바꿔봐요". Otherwise "".
 - suggest: 2 recommended expressions real natives would use in THIS moment of the conversation that the learner could say next or use instead (useful, reusable, natural; different from "better"), each with a short Korean meaning/usage tip.
@@ -574,11 +581,12 @@ function textModels(){
   const sel = $("#textModel"), first = sel.value;
   return [first, ...[...sel.options].map(o => o.value).filter(v => v && v !== first)].filter(Boolean);
 }
-async function callModel(model, prompt){
+async function callModel(model, prompt, audio){
   const r = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
     method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":key()},
-    body: JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}], generationConfig:{responseMimeType:"application/json", temperature:0.4}})
+    body: JSON.stringify({contents:[{role:"user",parts: audio ? [{inlineData:{mimeType:"audio/wav", data:b64(audio)}}, {text:prompt}] : [{text:prompt}]}], generationConfig:{responseMimeType:"application/json", temperature:0.4}})
   });
+  if (r.status===400 && audio){ const e = new Error("noaudio"); throw e; }
   if (r.status===429){
     let wait = 20000;
     try{ const j = await r.json(); const d = (j.error?.details||[]).find(x => x.retryDelay); if (d) wait = Math.ceil(parseFloat(d.retryDelay)*1000) || wait; }catch{}
@@ -589,7 +597,7 @@ async function callModel(model, prompt){
   const t = (j.candidates?.[0]?.content?.parts||[]).filter(p => !p.thought).map(p => p.text||"").join("");
   return JSON.parse(t.replace(/^```(?:json)?\s*|\s*```$/g,""));
 }
-async function generateNow(prompt){
+async function generateNow(prompt, audio, promptNoAudio){
   const models = textModels();
   if (!models.length) throw new Error("no_model");
   let shortest = Infinity;
@@ -598,8 +606,9 @@ async function generateNow(prompt){
       if ((coolUntil[m]||0) > Date.now()){ shortest = Math.min(shortest, coolUntil[m]-Date.now()); continue; }
       const gap = lastGenAt + GEN_GAP_MS - Date.now(); if (gap > 0) await sleep(gap);
       lastGenAt = Date.now();
-      try{ return await callModel(m, prompt); }
+      try{ return await callModel(m, prompt, audio); }
       catch(e){
+        if (e.message === "noaudio") return await callModel(m, promptNoAudio || prompt);
         if (e.message !== "rate") throw e;
         coolUntil[m] = Date.now() + e.wait; shortest = Math.min(shortest, e.wait);
       }
@@ -608,8 +617,8 @@ async function generateNow(prompt){
   }
   throw new Error("rate");
 }
-function generate(prompt){
-  const p = genChain.then(() => generateNow(prompt));
+function generate(prompt, audio, promptNoAudio){
+  const p = genChain.then(() => generateNow(prompt, audio, promptNoAudio));
   genChain = p.catch(() => {});
   return p;
 }
@@ -629,6 +638,7 @@ function finalizeMe(){
   const t = curMe; curMe = null;
   t.text = t.text.replace(/\s+/g," ").trim();
   if (!t.text){ turns.splice(turns.indexOf(t),1); render(); return; }
+  try{ if (t.audioFrom != null){ const wav = clipWav(t.audioFrom, performance.now()); if (wav){ t.wav = wav; t.audioUrl = URL.createObjectURL(new Blob([wav],{type:"audio/wav"})); } } }catch{}
   runFeedback(t); render();
 }
 function prevTutorTurn(me){
@@ -640,10 +650,13 @@ function runFeedback(me){
   if (me.text.split(/\s+/).filter(Boolean).length < 3 && !(activeLesson && running)) return;
   me.checking = true; render();
   const recent = turns.filter(t => t.role==="me" && t !== me && t.text).slice(-6).map(t => t.text);
-  generate(feedbackPrompt(pt ? pt.text : persona().open, me.text, recent)).then(r => {
+  const prevTxt = pt ? pt.text : persona().open;
+  generate(feedbackPrompt(prevTxt, me.text, recent, !!me.wav), me.wav, feedbackPrompt(prevTxt, me.text, recent, false)).then(r => {
     me.fb = {ok: !!r.ok, better: String(r.better||""), notes_ko: String(r.notes_ko||""), local_say: ["local","pidgin"].includes(style().id) ? String(r.local_say||"") : "",
       upgrade: Array.isArray(r.upgrade) ? r.upgrade.filter(x => x && x.en).slice(0,3).map(x => ({en:String(x.en), tone:String(x.tone||""), ko:String(x.ko||"")})) : [],
       variety_ko: String(r.variety_ko||""),
+      pron_score: Number(r.pron_score)||0,
+      pron: Array.isArray(r.pron) ? r.pron.filter(x => x && x.word).slice(0,3).map(x => ({word:String(x.word), heard:String(x.heard||""), tip_ko:String(x.tip_ko||"")})) : [],
       suggest: Array.isArray(r.suggest) ? r.suggest.filter(x => x && x.en).slice(0,3).map(x => ({en:String(x.en), ko:String(x.ko||"")})) : []};
     if (pt && !pt.terms) pt.terms = Array.isArray(r.terms) ? r.terms.filter(x => x && x.phrase).slice(0,6).map(x => ({phrase:String(x.phrase), ko:String(x.ko||"")})) : [];
     if (activeLesson && running){
@@ -658,6 +671,7 @@ function runFeedback(me){
     .finally(() => { me.checking = false; render(); });
 }
 function finalizeTutor(){
+  tutorEndAt = performance.now();
   if (!curTutor) return;
   const t = curTutor; curTutor = null;
   t.text = t.text.replace(/\s+/g," ").trim();
@@ -690,13 +704,29 @@ function renderSaved(){
     if (s.ko) it.append(el("small",null,s.ko)); box.append(it);
   });
 }
-function fbCard(fb, original){
+function pronBlock(fb, audioUrl){
+  if (!fb.pron_score && !audioUrl) return null;
+  const b = el("div","pron"); const head = el("div","pron-head");
+  head.append(el("span","tag","발음"));
+  if (fb.pron_score) head.append(el("span","pscore "+(fb.pron_score>=8?"good":fb.pron_score>=6?"mid":"low"), fb.pron_score+" / 10"));
+  if (audioUrl) head.append(chip("내 목소리 듣기",() => { try{ new Audio(audioUrl).play(); }catch{} }));
+  b.append(head);
+  if (fb.pron && fb.pron.length){
+    fb.pron.forEach(x => { const it = el("div","pi"); const p = el("p"); p.append(el("b",null,x.word));
+      if (x.heard) p.append(document.createTextNode("  들린 소리: "), el("i",null,x.heard));
+      it.append(p); if (x.tip_ko) it.append(el("small",null,x.tip_ko));
+      const r = el("div","tools"); r.append(chip("원어민 발음",() => sayLocal(x.word))); it.append(r); b.append(it); });
+  } else if (fb.pron_score >= 8) b.append(el("small",null,"또렷하게 잘 들려요."));
+  return b;
+}
+function fbCard(fb, original, audioUrl){
   const c = el("div","fb "+(fb.ok?"ok":"fix"));
   c.append(el("span","tag", fb.ok ? "자연스러워요" : "원어민은 이렇게"));
   if (!fb.ok && fb.better){ const d = el("div","diff"); d.append(diffWords(original, fb.better)); c.append(d); }
   else if (fb.ok && fb.better && fb.better.trim().toLowerCase() !== original.trim().toLowerCase()){ const d = el("div","diff"); d.append("이렇게도: ", el("ins",null,fb.better)); c.append(d); }
   if (fb.notes_ko) c.append(el("div","note",fb.notes_ko));
   if (fb.better){ const r = el("div","tools"); r.append(chip("듣기",() => sayLocal(fb.better)), chip(isSaved(fb.better)?"저장됨":"저장",() => toggleSave(fb.better, fb.notes_ko), isSaved(fb.better))); c.append(r); }
+  const pb = pronBlock(fb, audioUrl); if (pb) c.append(pb);
   if (fb.upgrade && fb.upgrade.length){
     const ug = el("div","suggest"); ug.append(el("span","tag","다르게 말하기 · 더 풍부하게"));
     fb.upgrade.forEach(x => {
@@ -738,7 +768,7 @@ function doRender(){
     }
     if (t.role==="me"){
       if (t.checking) m.append(el("div","pending","교정 중…"));
-      else if (t.fb) m.append(fbCard(t.fb, t.text));
+      else if (t.fb) m.append(fbCard(t.fb, t.text, t.audioUrl));
       else if (t.fbErr) m.append(el("div","pending",t.fbErr));
     }
     feed.append(m);
@@ -756,6 +786,26 @@ process(inp){const c=inp[0]&&inp[0][0];if(c){let pk=0;for(let k=0;k<c.length;k++
 this.b[this.i++]=s<0?s*0x8000:s*0x7fff;if(this.i===this.b.length){const o=this.b.slice(0);this.port.postMessage({pcm:o.buffer,pk},[o.buffer]);this.i=0;}}}return true;}}
 registerProcessor("cap",Cap);`;
 
+// Recent mic audio, so each learner line can be sent for a pronunciation check.
+const micRing = []; let micRingRate = 48000, tutorEndAt = 0;
+function pushRing(buf){
+  const now = performance.now(); micRing.push({t: now, pcm: new Int16Array(buf.slice(0))});
+  while (micRing.length && now - micRing[0].t > 30000) micRing.shift();
+}
+function clipWav(fromT, toT){
+  const parts = micRing.filter(c => c.t >= fromT && c.t <= toT);
+  if (!parts.length) return null;
+  const total = parts.reduce((n,c) => n + c.pcm.length, 0);
+  if (total < micRingRate * 0.4) return null;
+  const src = new Int16Array(total); let o = 0; parts.forEach(c => { src.set(c.pcm, o); o += c.pcm.length; });
+  const ratio = micRingRate / 16000, n = Math.floor(src.length / ratio), out = new Int16Array(n);
+  for (let i = 0; i < n; i++){ const a = Math.floor(i*ratio), b = Math.min(src.length, Math.floor((i+1)*ratio)); let sum = 0; for (let k = a; k < b; k++) sum += src[k]; out[i] = b > a ? sum/(b-a) : 0; }
+  const buf = new ArrayBuffer(44 + out.length*2), v = new DataView(buf), w = (off, str) => { for (let i = 0; i < str.length; i++) v.setUint8(off+i, str.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4, 36 + out.length*2, true); w(8,"WAVE"); w(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,16000,true); v.setUint32(28,32000,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40, out.length*2, true);
+  new Int16Array(buf, 44).set(out);
+  return buf;
+}
 function b64(buf){ const u = new Uint8Array(buf); let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000)); return btoa(s); }
 function unb64(s){ const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
 
@@ -764,13 +814,14 @@ async function startMic(){
   // Use the device's native rate (phones often refuse 16 kHz contexts) and declare it; the server resamples.
   micCtx = new AudioContext();
   if (micCtx.state === "suspended") await micCtx.resume();
-  const rate = micCtx.sampleRate, mime = "audio/pcm;rate=" + Math.round(rate);
+  const rate = micCtx.sampleRate, mime = "audio/pcm;rate=" + Math.round(rate); micRingRate = rate;
   const url = URL.createObjectURL(new Blob([WORKLET],{type:"application/javascript"}));
   await micCtx.audioWorklet.addModule(url);
   const src = micCtx.createMediaStreamSource(micStream);
   micNode = new AudioWorkletNode(micCtx, "cap", {processorOptions:{n: Math.round(rate * 0.04)}});
   micNode.port.onmessage = e => {
     micLevel = e.data.pk;
+    if (!muted) pushRing(e.data.pcm);
     if (!muted && setupDone && ws && ws.readyState===1)
       ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(e.data.pcm), mimeType:mime}}}));
   };
@@ -859,7 +910,7 @@ function handle(msg){
   if (sc.interrupted){ stopPlayback(); if (curTutor){ curTutor.text += " —"; finalizeTutor(); } }
   if (sc.inputTranscription && sc.inputTranscription.text){
     if (curTutor && !tutorSpeaking()) finalizeTutor();
-    if (!curMe) curMe = addTurn("me");
+    if (!curMe){ curMe = addTurn("me"); curMe.audioFrom = Math.max(tutorEndAt, performance.now() - 12000); }
     curMe.text += sc.inputTranscription.text; render();
   }
   if (sc.modelTurn && sc.modelTurn.parts){
@@ -885,7 +936,7 @@ $("#startBtn").onclick = async () => {
   if (!(await loadModels())){ $("#startBtn").disabled = false; return; }
   try{ await startMic(); }
   catch(e){ setState("마이크를 쓸 수 없어요. 브라우저 주소창의 마이크 권한을 허용해 주세요."); $("#startBtn").disabled = false; return; }
-  turns.length = 0; curMe = curTutor = null; kicked = false; resumeHandle = null; variant = 0; muted = false;
+  turns.length = 0; micRing.length = 0; tutorEndAt = 0; curMe = curTutor = null; kicked = false; resumeHandle = null; variant = 0; muted = false;
   activeLesson = mode==="lesson" ? findLesson(selLessonId) : null;
   missionDone = activeLesson ? activeLesson.mission.map(() => false) : [];
   phraseUsed = activeLesson ? activeLesson.phrases.map(() => false) : [];
@@ -943,7 +994,13 @@ Return JSON: {"overall_ko": string (2-3 honest, encouraging Korean sentences), "
     wait.remove();
     const sc = el("div","scores");
     [["grammar","문법"],["vocabulary","어휘"],["fluency","유창성"]].forEach(([k,ko]) => { const b = el("div","score"); b.append(el("b",null,String(r?.scores?.[k] ?? "–")), el("span",null,ko+" / 10")); sc.append(b); });
+    const ps = mine.map(t => t.fb && t.fb.pron_score).filter(x => x > 0);
+    if (ps.length){ const b = el("div","score"); b.append(el("b",null,(ps.reduce((a,x)=>a+x,0)/ps.length).toFixed(1)), el("span",null,"발음 / 10")); sc.append(b); }
     card.append(sc, el("p",null,String(r.overall_ko||"")));
+    const pw = []; mine.forEach(t => (t.fb && t.fb.pron || []).forEach(x => { if (!pw.some(y => y.word.toLowerCase()===x.word.toLowerCase())) pw.push(x); }));
+    if (pw.length){ card.append(el("p","label","발음 연습할 단어"));
+      pw.slice(0,8).forEach(x => { const it = el("div","saved-item"); it.append(el("p",null, x.word + (x.heard ? "  (들린 소리: "+x.heard+")" : "")));
+        const tl = el("div","tools"); tl.append(chip("원어민 발음",() => sayLocal(x.word))); it.append(tl); if (x.tip_ko) it.append(el("small",null,x.tip_ko)); card.append(it); }); }
     const list = (title, arr) => { if (!Array.isArray(arr) || !arr.length) return; card.append(el("p","label",title)); const ul = el("ul"); arr.forEach(x => ul.append(el("li",null,String(x)))); card.append(ul); };
     list("잘한 점", r.strengths_ko); list("다음에 집중할 것", r.focus_ko);
     if (Array.isArray(r.repeats) && r.repeats.length){
