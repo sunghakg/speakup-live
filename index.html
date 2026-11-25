@@ -137,7 +137,7 @@ details[open] summary{margin-bottom:10px}
 .stats{display:flex;gap:8px;flex-wrap:wrap}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--muted)}
 .stat b{font-family:var(--f-display);font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums;margin-right:3px}
-.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;margin-bottom:12px}
+.tabs{display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;margin-bottom:12px}
 .tabs button{border:0;background:none;border-radius:7px;padding:7px;font-size:14px}
 .tabs button[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.1);font-weight:600}
 .course{margin-bottom:12px}
@@ -162,6 +162,16 @@ details[open] summary{margin-bottom:10px}
 .goals li i{flex:none;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--line);margin-top:3px;font-style:normal;display:grid;place-items:center;font-size:10px}
 .goals li.ok{color:var(--muted)}
 .goals li.ok i{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.timer{font-family:var(--f-mono);font-size:13px;color:var(--muted);display:flex;gap:10px;align-items:center;width:100%}
+.timer .bar{flex:1;height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.timer .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .5s}
+.today{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.today .dday{font-family:var(--f-mono);font-size:12px;color:var(--accent);letter-spacing:.06em}
+.today h3{font-family:var(--f-display);font-size:20px;font-weight:500;margin:0}
+.today .flow{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.today .flow span{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}
+.today .flow b{display:block;color:var(--ink);font-size:13px}
+#expoInfo textarea,#expoInfo input{width:100%}
 .mission{width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
 .mission .done-banner{background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:6px 10px;font-weight:600;font-size:13.5px}
 @media (max-width:860px){
@@ -185,6 +195,7 @@ details[open] summary{margin-bottom:10px}
       <p class="who-name" id="whoName">대화 상대 대기 중</p>
       <div class="state" id="stateTxt">아래에서 상황을 고르고 대화를 시작하세요.</div>
       <div class="caption" id="caption"></div>
+      <div class="timer" id="timerBox" hidden></div>
       <div class="mission" id="missionBox" hidden></div>
       <div class="ctrls">
         <button class="btn primary big" id="startBtn">대화 시작</button>
@@ -200,8 +211,19 @@ details[open] summary{margin-bottom:10px}
         <p class="hint"><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>에서 무료로 만들 수 있어요. 키는 이 기기 브라우저에만 저장되고 Google에만 전송돼요.</p>
       </div>
       <div class="tabs" role="tablist">
+        <button id="tabToday" role="tab">오늘의 5분</button>
         <button id="tabLesson" role="tab">레슨</button>
         <button id="tabFree" role="tab">자유 대화</button>
+      </div>
+      <div id="todayPane">
+        <div id="todayCard"></div>
+        <details id="expoInfo">
+          <summary>내 전시 정보 (채울수록 맞춤 연습)</summary>
+          <div class="field"><p class="label">전시회 이름</p><input id="expoName" placeholder="예: CES 2027"></div>
+          <div class="field"><p class="label">전시 첫날</p><input type="date" id="expoDate"></div>
+          <div class="field"><p class="label">무엇을 전시하나요 (영어나 한국어로)</p><textarea id="expoWhat" rows="3" placeholder="예: 반도체 투자용 자동매매 소프트웨어. 개인 투자자와 증권사 대상. 강점은 하락장 방어."></textarea></div>
+          <div class="field"><p class="label">부스에서 내 역할</p><input id="expoRole" placeholder="예: 대표, 데모 담당"></div>
+        </details>
       </div>
       <div id="lessonPane">
         <div id="courseList"></div>
@@ -254,6 +276,7 @@ details[open] summary{margin-bottom:10px}
 <div class="sheet" id="sheet" hidden><div class="sheet-card" id="sheetCard"></div></div>
 
 <script src="lessons.js?v=4"></script>
+<script src="expo.js?v=1"></script>
 <script>
 (() => {
 "use strict";
@@ -363,12 +386,32 @@ const scen = () => SCENARIOS.find(s => s.id===$("#scen").value) || SCENARIOS[0];
 /* ---------- lessons & progress ---------- */
 const COURSES = window.SPEAKUP_COURSES || [];
 const ALL_LESSONS = COURSES.flatMap(c => c.lessons.map(l => ({...l, course: c.id, courseKo: c.ko, style: l.style || c.style})));
-let mode = store.get("mode","lesson");
+const EXPO = window.SPEAKUP_EXPO || {days:[], visitors:[]};
+let mode = "today";   // open on today's 5 minutes every time
 let selLessonId = store.get("lesson2", ALL_LESSONS[0] && ALL_LESSONS[0].id);
 let activeLesson = null, missionDone = [], phraseUsed = [], sessionStart = 0;
 let progress = store.get("progress", {done:{}, days:[], minutes:0});
 const findLesson = id => ALL_LESSONS.find(l => l.id===id) || null;
-function curLesson(){ return running ? activeLesson : (mode==="lesson" ? findLesson(selLessonId) : null); }
+const expoInfo = () => ({name: store.get("expoName",""), date: store.get("expoDate",""), what: store.get("expoWhat",""), role: store.get("expoRole","")});
+function dday(){
+  const d = expoInfo().date; if (!d) return null;
+  const t = new Date(d+"T00:00:00"), n = new Date(today()+"T00:00:00");
+  return Math.round((t - n) / 86400000);
+}
+function buildToday(){
+  if (!EXPO.days.length) return null;
+  const ex = progress.expo || {n:0};
+  let plan = store.get("todayPlan", null);
+  if (!plan || plan.date !== today() || plan.n !== ex.n){
+    plan = {date: today(), n: ex.n, v: Math.floor(Math.random() * EXPO.visitors.length)};
+    store.set("todayPlan", plan);
+  }
+  const day = EXPO.days[ex.n % EXPO.days.length], [vn, vd] = EXPO.visitors[plan.v % EXPO.visitors.length];
+  return {...day, daily: true, dayNo: ex.n + 1, style: "business", name: vn,
+    role: `${vn}, ${vd}, visiting the learner's booth at a busy trade show, ${day.visitor}`,
+    open: "", goal: day.ko, review: store.get("review", []).slice(-2)};
+}
+function curLesson(){ return running ? activeLesson : (mode==="lesson" ? findLesson(selLessonId) : mode==="today" ? buildToday() : null); }
 function persona(){
   const L = curLesson();
   return L ? {name:L.name, role:L.role, open:L.open, ko:L.title + " · " + L.ko, style:L.style} : scen();
@@ -384,13 +427,34 @@ function streak(){
 function renderStats(){
   const box = $("#stats"); box.textContent = "";
   const add = (num, label) => { const s = el("span","stat"); s.append(el("b",null,String(num)), label); box.append(s); };
+  const dd = dday(); if (dd != null) add(dd > 0 ? "D-"+dd : dd===0 ? "D-DAY" : "D+"+(-dd), "전시");
   add(streak(), "일 연속"); add(Object.keys(progress.done).length + "/" + ALL_LESSONS.length, "레슨"); add(Math.round(progress.minutes), "분 연습");
 }
 function setMode(m){
-  mode = m; store.set("mode", m);
-  $("#tabLesson").setAttribute("aria-selected", m==="lesson"); $("#tabFree").setAttribute("aria-selected", m==="free");
-  $("#lessonPane").hidden = m!=="lesson"; $("#freePane").hidden = m!=="free";
+  mode = m;
+  $("#tabToday").setAttribute("aria-selected", m==="today"); $("#tabLesson").setAttribute("aria-selected", m==="lesson"); $("#tabFree").setAttribute("aria-selected", m==="free");
+  $("#todayPane").hidden = m!=="today"; $("#lessonPane").hidden = m!=="lesson"; $("#freePane").hidden = m!=="free";
+  $("#startBtn").textContent = m==="today" ? "오늘의 5분 시작" : "대화 시작";
+  if (m==="today") renderToday();
 }
+function renderToday(){
+  const box = $("#todayCard"), L = buildToday(); box.textContent = "";
+  if (!L) return;
+  const c = el("div","today"), info = expoInfo(), dd = dday();
+  const doneToday = progress.expo && progress.expo.last === today();
+  c.append(el("span","dday", `${info.name ? info.name+" · " : "1월 전시 · "}${dd != null ? (dd > 0 ? "D-"+dd : dd===0 ? "D-DAY" : "전시 후") : "날짜 미입력"} · DAY ${L.dayNo}${doneToday ? " · 오늘 1회 완료 ✓" : ""}`));
+  c.append(el("h3",null,L.ko), el("p","hint",`${L.title} · 오늘의 방문객: ${L.name}`));
+  const flow = el("div","flow");
+  [["1분","따라 말하기"],["3분","부스 롤플레이"],["1분","레벨업"]].forEach(([a,b]) => { const sp = el("span"); sp.append(el("b",null,a), document.createTextNode(b)); flow.append(sp); });
+  c.append(flow, el("p","label","오늘의 핵심 표현"), phraseList(L), el("p","label","미션"), goalList(L));
+  if (L.review.length) c.append(el("p","hint","복습: " + L.review.map(r => r.en).join(" · ")));
+  if (!info.what) c.append(el("p","hint","아래 '내 전시 정보'에 무엇을 전시하는지 적어두면 방문객이 그 제품에 대해 물어봐요."));
+  box.append(c);
+}
+$("#tabToday").onclick = () => setMode("today");
+["expoName","expoDate","expoWhat","expoRole"].forEach(id => $("#"+id).addEventListener("change", () => { store.set(id, $("#"+id).value.trim()); renderToday(); renderStats(); }));
+["expoName","expoDate","expoWhat","expoRole"].forEach(id => { $("#"+id).value = store.get(id, ""); });
+if (!store.get("expoWhat","")) $("#expoInfo").open = true;
 $("#tabLesson").onclick = () => setMode("lesson");
 $("#tabFree").onclick = () => setMode("free");
 const detailEl = $("#lessonDetail");
@@ -445,10 +509,20 @@ function renderMission(){
 }
 function markPracticed(){
   if (!sessionStart) return;
+  if (activeLesson && activeLesson.daily && Date.now() - sessionStart > 150000){
+    const ex = progress.expo || {n:0}; progress.expo = {n: ex.n + 1, last: today()};
+    const rv = store.get("review", []);
+    turns.filter(t => t.role==="me" && t.fb).forEach(t => {
+      (t.fb.pron||[]).slice(0,1).forEach(x => rv.push({en: x.word, ko: x.tip_ko}));
+      if (!t.fb.ok && t.fb.better) rv.push({en: t.fb.better, ko: t.fb.notes_ko});
+    });
+    store.set("review", rv.slice(-12));
+  }
   progress.minutes += (Date.now() - sessionStart) / 60000; sessionStart = 0;
   if (!progress.days.includes(today())) progress.days.push(today());
   progress.days = progress.days.slice(-400);
   store.set("progress", progress); renderStats();
+  if (mode==="today") renderToday();
 }
 const level = () => LEVELS.find(s => s.id===$("#level").value) || LEVELS[1];
 const key = () => $("#apiKey").value.trim();
@@ -503,6 +577,30 @@ function coachRule(){
     ? `QUICK SPOKEN TIP: right after the learner speaks, if their line sounded unnatural, textbook-y or wrong, open your reply with ONE very short English tip, like a friend would ("Quick tip, you'd say: ..." or "Natives would say: ..."), say the better version once, then carry straight on with the conversation in character. If their line was fine but plain, now and then (not every turn) toss a fresher way to say it in passing ("or you could say ..."). If they keep leaning on the same words (good, very, nice, I think), call it out once, playfully, with a swap. If a word came out mispronounced enough to sound off (r/l, f/p, v/b, th, vowel length, stress), the tip can be about that sound instead: say the word slowly once, then normally ("it's 'world', curl the tongue a bit"). Never more than one tip per turn, never explain grammar.`
     : `Do NOT correct their mistakes out loud; corrections are shown on their screen separately. Just keep the conversation flowing.`;
 }
+function dailyPrompt(L){
+  const st = style(), l = level(), info = expoInfo(), dd = dday();
+  const when = dd != null && dd >= 0 ? ` The show starts in ${dd} days.` : "";
+  return `You're a friendly, upbeat English speaking coach running the learner's daily 5-minute practice by voice. The learner is a Korean professional who will exhibit at a trade show in January${info.name ? " ("+info.name+")" : ""}.${when} Everything today is practice for working that booth.
+About their booth: ${info.what ? info.what : "not given yet. Early in the role-play, ask what they're showing and roll with whatever they say."}
+Their role at the booth: ${info.role || "exhibitor"}.
+
+Today is day ${L.dayNo}. Topic: "${L.title}".
+Key expressions:
+${L.phrases.map(([en],i) => `${i+1}. "${en}"`).join("\n")}
+${L.review.length ? `Quick review from earlier sessions (drill these too): ${L.review.map(r => `"${r.en}"`).join(", ")}` : ""}
+
+The whole session is about 5 minutes. You'll get short timing notes in parentheses from the app; follow them right away, don't read them out.
+1. WARM-UP (about 1 minute): one short hello that names today's topic${when ? " and the countdown" : ""}. Drill 3 of the key expressions${L.review.length ? " plus the review items" : ""}: say each naturally, they repeat. If it was fine, react quickly and give one alternative natives also say. If one thing was off (a sound, stress, linking, a missing word), fix just that, max two tries. No lectures.
+2. BOOTH ROLE-PLAY (about 3 minutes): say "Okay, I'm walking up to your booth" and become ${L.role}. Stay fully in character as a real person, not a tutor or an AI. Be realistic: trade show visitors are busy, a bit distracted, ask real questions about the product. Steer so they get chances to: ${L.mission.map(m => m[1]).join("; ")}. If they're stuck, nudge them toward a key expression like a friend would.
+3. LEVEL-UP (about 1 minute): step out of character. Pick one or two of their plainest or shakiest lines, say "you said ..., try this", give one richer version or a pronunciation fix, and have them say it once. Then one sentence of honest encouragement and a one-line teaser for tomorrow. Then stop talking.
+
+${ENGLISH_ONLY}
+
+${coachRule()}
+How you talk in the role-play: ${st.rule}
+${l.rule}
+Always sound like a real human, not an assistant: contractions, casual reactions (oh nice, gotcha, haha), now and then natural fillers. Short turns, one or two sentences, at most one question per turn. No customer-service phrases.`;
+}
 function lessonPrompt(L){
   const st = style(), l = level();
   return `You're running a short live speaking lesson with a Korean adult, by voice. It has two parts.
@@ -523,7 +621,7 @@ Always sound like a real human, not an assistant: contractions and spoken forms,
 The role-play opening line is something like: "${L.open}"`;
 }
 function systemPrompt(){
-  const L = curLesson(); if (L) return lessonPrompt(L);
+  const L = curLesson(); if (L) return L.daily ? dailyPrompt(L) : lessonPrompt(L);
   const s = persona(), st = style(), l = level();
   return `You're in a live voice conversation with a Korean adult who is practicing spoken English. Stay fully in character the whole time as ${s.role}. You are a real person in this scene, not a tutor and not an AI; never say you're an AI or a language model unless they directly ask.
 
@@ -899,7 +997,7 @@ function handle(msg){
     $("#orb").classList.remove("idle");
     if (!kicked){
       kicked = true;
-      const kick = activeLesson ? "(The lesson starts now. Begin part 1.)" : "(The scene starts now. Say your opening line, in character, naturally.)";
+      const kick = activeLesson && activeLesson.daily ? "(Today's 5-minute session starts now. Begin the warm-up.)" : activeLesson ? "(The lesson starts now. Begin part 1.)" : "(The scene starts now. Say your opening line, in character, naturally.)";
       ws.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text:kick}]}], turnComplete:true}}));
     }
     return;
@@ -937,7 +1035,8 @@ $("#startBtn").onclick = async () => {
   try{ await startMic(); }
   catch(e){ setState("마이크를 쓸 수 없어요. 브라우저 주소창의 마이크 권한을 허용해 주세요."); $("#startBtn").disabled = false; return; }
   turns.length = 0; micRing.length = 0; tutorEndAt = 0; curMe = curTutor = null; kicked = false; resumeHandle = null; variant = 0; muted = false;
-  activeLesson = mode==="lesson" ? findLesson(selLessonId) : null;
+  activeLesson = mode==="lesson" ? findLesson(selLessonId) : mode==="today" ? buildToday() : null;
+  nudged = 0; autoEnding = false;
   missionDone = activeLesson ? activeLesson.mission.map(() => false) : [];
   phraseUsed = activeLesson ? activeLesson.phrases.map(() => false) : [];
   sessionStart = Date.now();
@@ -947,6 +1046,25 @@ $("#startBtn").onclick = async () => {
   $("#caption").classList.toggle("veiled", $("#capMode").value==="hide");
   setState("연결하는 중…"); connect(); animate(); keepAwake();
 };
+/* daily 5-minute pacing: quiet timing notes to the coach, then auto-finish */
+let nudged = 0, autoEnding = false;
+const NUDGES = [
+  [75, "(Timing: about 1 minute in. If you're still warming up, finish this phrase and move to the booth role-play now.)"],
+  [230, "(Timing: about 4 minutes in. Bring the visitor's scene to a natural close now, then do the level-up.)"],
+  [300, "(Timing: 5 minutes. Wrap up now in one or two sentences.)"]];
+function sendNote(text){ try{ if (ws && ws.readyState===1 && setupDone) ws.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text}]}], turnComplete:false}})); }catch{} }
+setInterval(() => {
+  const L = activeLesson, box = $("#timerBox");
+  if (!running || !L || !L.daily){ box.hidden = true; return; }
+  const sec = Math.floor((Date.now() - sessionStart) / 1000);
+  box.hidden = false; box.textContent = "";
+  const bar = el("div","bar"), fill = el("i"); fill.style.width = Math.min(100, sec/300*100) + "%"; bar.append(fill);
+  const phase = sec < 75 ? "따라 말하기" : sec < 230 ? "부스 롤플레이" : "레벨업";
+  box.append(el("span",null, `${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")} / 5:00`), bar, el("span",null,phase));
+  while (nudged < NUDGES.length && sec >= NUDGES[nudged][0]){ sendNote(NUDGES[nudged][1]); nudged++; }
+  if (sec >= 345 && !autoEnding && !tutorSpeaking() && !curTutor && !curMe){ autoEnding = true; $("#endBtn").click(); }
+  if (sec >= 420 && !autoEnding){ autoEnding = true; $("#endBtn").click(); }
+}, 1000);
 /* keep the phone screen on during a call; a locked screen stops the mic */
 let wakeLock = null;
 async function keepAwake(){ try{ if ("wakeLock" in navigator && running) wakeLock = await navigator.wakeLock.request("screen"); }catch{} }
@@ -1031,7 +1149,7 @@ document.addEventListener("keydown", e => { if (e.key==="Escape") $("#sheet").hi
 
 /* ---------- boot ---------- */
 const tpl = document.createElement("template"); tpl.id = "emptyTpl"; tpl.content.append($("#empty").cloneNode(true)); document.body.append(tpl);
-renderSaved(); setMode(mode); renderCourses(); renderStats();
+renderSaved(); renderCourses(); setMode(mode); renderStats();
 if (location.protocol === "file:") setState("start.bat으로 열어야 마이크가 안정적으로 동작해요.");
 else if (key()) loadModels();
 })();
