@@ -221,8 +221,8 @@ details[open] summary{margin-bottom:10px}
           <summary>내 전시 정보 (채울수록 맞춤 연습)</summary>
           <div class="field"><p class="label">전시회 이름</p><input id="expoName" placeholder="예: CES 2027"></div>
           <div class="field"><p class="label">전시 첫날</p><input type="date" id="expoDate"></div>
-          <div class="field"><p class="label">무엇을 전시하나요 (영어나 한국어로)</p><textarea id="expoWhat" rows="3" placeholder="예: 반도체 투자용 자동매매 소프트웨어. 개인 투자자와 증권사 대상. 강점은 하락장 방어."></textarea></div>
-          <div class="field"><p class="label">부스에서 내 역할</p><input id="expoRole" placeholder="예: 대표, 데모 담당"></div>
+          <div class="field"><p class="label">무엇을 전시하나요 (영어나 한국어로)</p><textarea id="expoWhat" rows="3" placeholder="비워두면 LIALOHA 기본 정보 사용 (맞춤 기념품: 마그넷·키체인·가방·의류·타월, MOQ 300, 납기 90~120일, 선금 30%)"></textarea></div>
+          <div class="field"><p class="label">부스에서 내 역할</p><input id="expoRole" placeholder="비워두면: 대표 / 영업 담당"></div>
         </details>
       </div>
       <div id="lessonPane">
@@ -276,7 +276,7 @@ details[open] summary{margin-bottom:10px}
 <div class="sheet" id="sheet" hidden><div class="sheet-card" id="sheetCard"></div></div>
 
 <script src="lessons.js?v=4"></script>
-<script src="expo.js?v=1"></script>
+<script src="expo.js?v=2"></script>
 <script>
 (() => {
 "use strict";
@@ -408,7 +408,7 @@ function buildToday(){
   }
   const day = EXPO.days[ex.n % EXPO.days.length], [vn, vd] = EXPO.visitors[plan.v % EXPO.visitors.length];
   return {...day, daily: true, dayNo: ex.n + 1, style: "business", name: vn,
-    role: `${vn}, ${vd}, visiting the learner's booth at a busy trade show, ${day.visitor}`,
+    role: `${vn}, ${vd}, a store buyer visiting the learner's booth at a busy gift and souvenir trade show, ${day.visitor}`,
     open: "", goal: day.ko, review: store.get("review", []).slice(-2)};
 }
 function curLesson(){ return running ? activeLesson : (mode==="lesson" ? findLesson(selLessonId) : mode==="today" ? buildToday() : null); }
@@ -448,13 +448,13 @@ function renderToday(){
   [["1분","따라 말하기"],["3분","부스 롤플레이"],["1분","레벨업"]].forEach(([a,b]) => { const sp = el("span"); sp.append(el("b",null,a), document.createTextNode(b)); flow.append(sp); });
   c.append(flow, el("p","label","오늘의 핵심 표현"), phraseList(L), el("p","label","미션"), goalList(L));
   if (L.review.length) c.append(el("p","hint","복습: " + L.review.map(r => r.en).join(" · ")));
-  if (!info.what) c.append(el("p","hint","아래 '내 전시 정보'에 무엇을 전시하는지 적어두면 방문객이 그 제품에 대해 물어봐요."));
+  if (!info.what) c.append(el("p","hint","LIALOHA 제품 정보(ca-spor.pages.dev 기준)로 방문객이 질문해요. 바꾸려면 아래 '내 전시 정보'에 적어주세요."));
   box.append(c);
 }
 $("#tabToday").onclick = () => setMode("today");
 ["expoName","expoDate","expoWhat","expoRole"].forEach(id => $("#"+id).addEventListener("change", () => { store.set(id, $("#"+id).value.trim()); renderToday(); renderStats(); }));
 ["expoName","expoDate","expoWhat","expoRole"].forEach(id => { $("#"+id).value = store.get(id, ""); });
-if (!store.get("expoWhat","")) $("#expoInfo").open = true;
+if (!store.get("expoDate","")) $("#expoInfo").open = true;
 $("#tabLesson").onclick = () => setMode("lesson");
 $("#tabFree").onclick = () => setMode("free");
 const detailEl = $("#lessonDetail");
@@ -580,9 +580,9 @@ function coachRule(){
 function dailyPrompt(L){
   const st = style(), l = level(), info = expoInfo(), dd = dday();
   const when = dd != null && dd >= 0 ? ` The show starts in ${dd} days.` : "";
-  return `You're a friendly, upbeat English speaking coach running the learner's daily 5-minute practice by voice. The learner is a Korean professional who will exhibit at a trade show in January${info.name ? " ("+info.name+")" : ""}.${when} Everything today is practice for working that booth.
-About their booth: ${info.what ? info.what : "not given yet. Early in the role-play, ask what they're showing and roll with whatever they say."}
-Their role at the booth: ${info.role || "exhibitor"}.
+  return `You're a friendly, upbeat English speaking coach running the learner's daily 5-minute practice by voice. The learner is a Korean business owner who will be an EXHIBITOR (the seller, standing in their own booth) at a gift and souvenir trade show in January${info.name ? " ("+info.name+")" : ""}.${when} Everything today is practice for working that booth: greeting store buyers, pitching, answering price, minimum, timing and process questions, and getting leads. In the role-play you are always the VISITOR (a buyer), never the seller.
+About their company and products (real facts; use them to ask realistic buyer questions, and if the learner states a slightly different number, go with what they say): ${info.what || EXPO.product || "not given yet. Early in the role-play, ask what they're showing and roll with whatever they say."}
+Their role at the booth: ${info.role || EXPO.role || "exhibitor"}.
 
 Today is day ${L.dayNo}. Topic: "${L.title}".
 Key expressions:
