@@ -445,7 +445,7 @@ function renderToday(){
   c.append(el("span","dday", `${info.name ? info.name+" · " : "1월 전시 · "}${dd != null ? (dd > 0 ? "D-"+dd : dd===0 ? "D-DAY" : "전시 후") : "날짜 미입력"} · DAY ${L.dayNo}${doneToday ? " · 오늘 1회 완료 ✓" : ""}`));
   c.append(el("h3",null,L.ko), el("p","hint",`${L.title} · 오늘의 방문객: ${L.name}`));
   const flow = el("div","flow");
-  [["1분","따라 말하기"],["3분","부스 롤플레이"],["1분","레벨업"]].forEach(([a,b]) => { const sp = el("span"); sp.append(el("b",null,a), document.createTextNode(b)); flow.append(sp); });
+  [["2분","따라 말하기"],["2분","부스 롤플레이"],["1분","빠른 따라하기"]].forEach(([a,b]) => { const sp = el("span"); sp.append(el("b",null,a), document.createTextNode(b)); flow.append(sp); });
   c.append(flow, el("p","label","오늘의 핵심 표현"), phraseList(L), el("p","label","미션"), goalList(L));
   if (L.review.length) c.append(el("p","hint","복습: " + L.review.map(r => r.en).join(" · ")));
   if (!info.what) c.append(el("p","hint","LIALOHA 제품 정보(ca-spor.pages.dev 기준)로 방문객이 질문해요. 바꾸려면 아래 '내 전시 정보'에 적어주세요."));
@@ -590,9 +590,15 @@ ${L.phrases.map(([en],i) => `${i+1}. "${en}"`).join("\n")}
 ${L.review.length ? `Quick review from earlier sessions (drill these too): ${L.review.map(r => `"${r.en}"`).join(", ")}` : ""}
 
 The whole session is about 5 minutes. You'll get short timing notes in parentheses from the app; follow them right away, don't read them out.
-1. WARM-UP (about 1 minute): one short hello that names today's topic${when ? " and the countdown" : ""}. Drill 3 of the key expressions${L.review.length ? " plus the review items" : ""}: say each naturally, they repeat. If it was fine, react quickly and give one alternative natives also say. If one thing was off (a sound, stress, linking, a missing word), fix just that, max two tries. No lectures.
-2. BOOTH ROLE-PLAY (about 3 minutes): say "Okay, I'm walking up to your booth" and become ${L.role}. Stay fully in character as a real person, not a tutor or an AI. Be realistic: trade show visitors are busy, a bit distracted, ask real questions about the product. Steer so they get chances to: ${L.mission.map(m => m[1]).join("; ")}. If they're stuck, nudge them toward a key expression like a friend would.
-3. LEVEL-UP (about 1 minute): step out of character. Pick one or two of their plainest or shakiest lines, say "you said ..., try this", give one richer version or a pronunciation fix, and have them say it once. Then one sentence of honest encouragement and a one-line teaser for tomorrow. Then stop talking.
+The learner wants to REPEAT AFTER YOU A LOT. Make them say things out loud as many times as possible; your own turns stay very short.
+1. REPEAT-AFTER-ME (about 2 minutes): one short hello that names today's topic${when ? " and the countdown" : ""}, then go straight into drilling ALL 5 key expressions${L.review.length ? " plus the review items" : ""}, one by one. For each one:
+   a) say it at natural speed, they repeat;
+   b) if it's longer than about 6 words, build it up from the END in 2-3 chunks (e.g. "three hundred pieces" → "with a minimum of three hundred pieces" → the full line), they repeat each chunk;
+   c) they say the full line once more, a bit faster, like they mean it;
+   d) one quick twist they repeat too: swap one word for their real situation (a different item, number or city), or a variation natives also say.
+   Keep your feedback to 1-3 words ("nice", "yep", "smoother") unless a sound or the stress was off: then say just that bit slowly once and have them repeat it. Never more than two retries on the same thing.
+2. BOOTH ROLE-PLAY (about 2 minutes): say "Okay, I'm walking up to your booth" and become ${L.role}. Stay fully in character as a real person, not a tutor or an AI. Be realistic: trade show visitors are busy, a bit distracted, and ask real questions about the products. Deliberately give them openings where today's key expressions fit, so they can use what they just drilled. Steer so they get chances to: ${L.mission.map(m => m[1]).join("; ")}. If they freeze or say it very plainly, drop character for one second ("psst, try: ..."), let them say that line, then jump right back in.
+3. RAPID-FIRE REPEAT (about 1 minute): step out of character. First, cue situations in English and have them answer with today's expressions, fast ("A buyer asks your minimum. Go!", "Someone says they're just looking. Go!"), 3-4 cues. Then take one or two of their plainest or shakiest lines from the role-play: "you said ..., say it like this", they repeat the better version twice. End with one sentence of honest encouragement and a one-line teaser for tomorrow, then stop talking.
 
 ${ENGLISH_ONLY}
 
@@ -743,9 +749,26 @@ function prevTutorTurn(me){
   for (let i = turns.indexOf(me)-1; i >= 0; i--) if (turns[i].role==="tutor") return turns[i];
   return null;
 }
+// Daily drill: the learner repeats a lot. Check each key phrase only once (the first full repeat, for pronunciation);
+// skip chunk repeats and later repeats so the free quota lasts.
+const drillChecked = new Set();
+function skipDrillRepeat(me){
+  const words = x => String(x).toLowerCase().replace(/[^a-z0-9' ]+/g," ").split(/\s+/).filter(Boolean);
+  const mine = words(me.text); if (!mine.length) return true;
+  const all = activeLesson.phrases.map(p => p[0]).concat((activeLesson.review||[]).map(r => r.en));
+  for (const ph of all){
+    const pw = words(ph), set = new Set(pw), hit = mine.filter(w => set.has(w)).length;
+    if (hit / Math.max(mine.length,1) < 0.7) continue;          // not a repeat of this phrase
+    if (mine.length < pw.length * 0.75) return true;             // a chunk of it
+    if (drillChecked.has(ph)) return true;                       // already checked once
+    drillChecked.add(ph); return false;
+  }
+  return mine.length < 3;
+}
 function runFeedback(me){
   const pt = prevTutorTurn(me);
   if (me.text.split(/\s+/).filter(Boolean).length < 3 && !(activeLesson && running)) return;
+  if (activeLesson && activeLesson.daily && skipDrillRepeat(me)) return;
   me.checking = true; render();
   const recent = turns.filter(t => t.role==="me" && t !== me && t.text).slice(-6).map(t => t.text);
   const prevTxt = pt ? pt.text : persona().open;
@@ -997,7 +1020,7 @@ function handle(msg){
     $("#orb").classList.remove("idle");
     if (!kicked){
       kicked = true;
-      const kick = activeLesson && activeLesson.daily ? "(Today's 5-minute session starts now. Begin the warm-up.)" : activeLesson ? "(The lesson starts now. Begin part 1.)" : "(The scene starts now. Say your opening line, in character, naturally.)";
+      const kick = activeLesson && activeLesson.daily ? "(Today's 5-minute session starts now. Begin the repeat-after-me drill.)" : activeLesson ? "(The lesson starts now. Begin part 1.)" : "(The scene starts now. Say your opening line, in character, naturally.)";
       ws.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text:kick}]}], turnComplete:true}}));
     }
     return;
@@ -1034,7 +1057,7 @@ $("#startBtn").onclick = async () => {
   if (!(await loadModels())){ $("#startBtn").disabled = false; return; }
   try{ await startMic(); }
   catch(e){ setState("마이크를 쓸 수 없어요. 브라우저 주소창의 마이크 권한을 허용해 주세요."); $("#startBtn").disabled = false; return; }
-  turns.length = 0; micRing.length = 0; tutorEndAt = 0; curMe = curTutor = null; kicked = false; resumeHandle = null; variant = 0; muted = false;
+  turns.length = 0; drillChecked.clear(); micRing.length = 0; tutorEndAt = 0; curMe = curTutor = null; kicked = false; resumeHandle = null; variant = 0; muted = false;
   activeLesson = mode==="lesson" ? findLesson(selLessonId) : mode==="today" ? buildToday() : null;
   nudged = 0; autoEnding = false;
   missionDone = activeLesson ? activeLesson.mission.map(() => false) : [];
@@ -1049,8 +1072,8 @@ $("#startBtn").onclick = async () => {
 /* daily 5-minute pacing: quiet timing notes to the coach, then auto-finish */
 let nudged = 0, autoEnding = false;
 const NUDGES = [
-  [75, "(Timing: about 1 minute in. If you're still warming up, finish this phrase and move to the booth role-play now.)"],
-  [230, "(Timing: about 4 minutes in. Bring the visitor's scene to a natural close now, then do the level-up.)"],
+  [125, "(Timing: about 2 minutes in. Finish the phrase you're on and start the booth role-play now.)"],
+  [245, "(Timing: about 4 minutes in. Close the visitor's scene in one line, then do the rapid-fire repeat round.)"],
   [300, "(Timing: 5 minutes. Wrap up now in one or two sentences.)"]];
 function sendNote(text){ try{ if (ws && ws.readyState===1 && setupDone) ws.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text}]}], turnComplete:false}})); }catch{} }
 setInterval(() => {
@@ -1059,7 +1082,7 @@ setInterval(() => {
   const sec = Math.floor((Date.now() - sessionStart) / 1000);
   box.hidden = false; box.textContent = "";
   const bar = el("div","bar"), fill = el("i"); fill.style.width = Math.min(100, sec/300*100) + "%"; bar.append(fill);
-  const phase = sec < 75 ? "따라 말하기" : sec < 230 ? "부스 롤플레이" : "레벨업";
+  const phase = sec < 125 ? "따라 말하기" : sec < 245 ? "부스 롤플레이" : "빠른 따라하기";
   box.append(el("span",null, `${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")} / 5:00`), bar, el("span",null,phase));
   while (nudged < NUDGES.length && sec >= NUDGES[nudged][0]){ sendNote(NUDGES[nudged][1]); nudged++; }
   if (sec >= 345 && !autoEnding && !tutorSpeaking() && !curTutor && !curMe){ autoEnding = true; $("#endBtn").click(); }
