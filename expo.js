@@ -2,7 +2,7 @@
 // Booth = LIALOHA custom souvenir program (facts from the learner's own order site). Visitors = store buyers.
 // Each day: theme, booth visitor situation, 5 key phrases [english, korean tip], 4 mission goals [korean, english].
 window.SPEAKUP_EXPO = {
-  product: `LIALOHA, Inc. (Tustin, California; Hawaii-rooted souvenir and gift brand). We make custom, store-branded souvenir and gift products for retail stores, with in-house design. Product lines and starting prices (MOQ): magnets from $1.75 (300 pcs), keychains from $1.75 (300), ornaments from $2 (300), coasters from $2 (300), clicker keychains and character keychains from $3 (1,200), foldable bags from $4 (300 per design), cooler bags from $3.50 (300 per design), beach bags from $7, straw bags from $9 (300 per design), pouches from $5 (500 per design), sun-protection custom shirts from $15, long-sleeve cool shirts from $12.50, embroidered hoodies from $13.50, embroidered sweatshirts from $12.50, cool hoodies $13.50, cool pants $12.50 (300 pcs each), hats (price on request), beach towels from $7 (300), lap blankets from $13 (120 pcs). Lead time 90-120 days. Free shipping on the first order. Free in-house design for committed orders ("we build a custom program for your stores"). Ordering steps: new customer application with business license, proforma invoice (PI), 30% deposit, mockup, design approval or revisions, production, 70% balance, delivery. Video calls can be booked from the site.`,
+  product: `LIALOHA, Inc. (Tustin, California; Hawaii-rooted souvenir and gift brand). We make custom, store-branded souvenir and gift products for retail stores, with in-house design. Product lines and starting prices (MOQ): magnets from $1.75 (300 pcs), keychains from $1.75 (300), ornaments from $2 (300), coasters from $2 (300), clicker keychains and character keychains from $3 (1,200), foldable bags from $4 (300 per design), cooler bags from $3.50 (300 per design), beach bags from $7, straw bags from $9 (300 per design), pouches from $5 (500 per design), sun-protection custom shirts from $15, long-sleeve cool shirts from $12.50, embroidered hoodies from $13.50, embroidered sweatshirts from $12.50, cool hoodies $13.50, cool pants $12.50 (300 pcs each), hats (price on request), beach towels from $7 (300), lap blankets from $13 (120 pcs). Lead time 90-120 days. Free shipping on the first order. Free in-house design for committed orders ("we build a custom program for your stores"). Ordering steps: new customer application with business license, proforma invoice (PI), 30% deposit, mockup, design approval or revisions, production, 70% balance, delivery. Video calls can be booked from the site. What the booth looks like (from the last show, the Las Vegas Souvenir & Resort Gift Show, Emerging Marketplace, booth 3527): a corner booth with destination-name apparel hanging on the back wall (San Diego, Los Angeles, San Francisco, Hollywood, Hawaii, "ALOHA"), all-over city-collage print aloha shirts with matching shorts, hoodie and jogger sets, long-sleeve sun shirts, a wall of colorful printed foldable tote bags and striped straw bags with city names, hats on a shelf, a spinning magnet rack (Los Angeles designs), keychain pegboards, wooden surfboard decor, beach sarongs on hangers at the table corners, and two table signs: "Special orders welcome / In-house design services / Low minimums / Fast production & delivery / Competitive pricing". Any city or venue name can go on the designs.`,
   role: "owner / sales lead",
   visitors: [
     ["Linda", "the owner of three souvenir shops in a busy beach town, practical and price-conscious"],
@@ -16,11 +16,11 @@ window.SPEAKUP_EXPO = {
   ],
   days: [
     { id: "ex-opener", ko: "부스 앞 지나가는 바이어 붙잡기", title: "The booth opener",
-      visitor: "slowing down near the booth, glancing at the magnets and bags on display, not sure whether to stop",
+      visitor: "slowing down near the booth, glancing at the city-print aloha shirts and the spinning magnet rack, not sure whether to stop",
       phrases: [
         ["Hi there! How's the show treating you?", "안녕하세요! 전시 어떠세요? (가볍게 첫마디)"],
         ["What kind of store do you have?", "어떤 매장 하세요? (바이어 파악 첫 질문)"],
-        ["These are all custom, made for each store.", "전부 매장별 맞춤 제작이에요"],
+        ["Everything here can be made with your city's name on it.", "여기 있는 건 전부 손님 도시 이름으로 만들 수 있어요"],
         ["Feel free to pick it up.", "편하게 만져보세요 (샘플 건넬 때)"],
         ["Where are your stores located?", "매장이 어디 있으세요?"]],
       mission: [
@@ -32,7 +32,7 @@ window.SPEAKUP_EXPO = {
       visitor: "who stopped and says 'So what's your company about?'",
       phrases: [
         ["We build custom souvenir programs for retail stores.", "저희는 매장 맞춤 기념품 프로그램을 만들어요"],
-        ["Your store name, your designs, on everything from magnets to hoodies.", "마그넷부터 후디까지 매장 이름과 디자인으로요"],
+        ["Your city, your store name, on everything from magnets to hoodies.", "마그넷부터 후디까지 도시 이름·매장 이름을 넣어요"],
         ["And the design is done in-house, so it's on us.", "디자인은 자체 팀이 해서 비용 안 들어요"],
         ["Most of our customers are souvenir shops and hotel gift shops.", "고객은 주로 기념품샵, 호텔 기프트샵이에요"],
         ["What sells best in your store right now?", "지금 매장에서 뭐가 제일 잘 팔려요? (대화를 상대로 넘기기)"]],
@@ -47,12 +47,12 @@ window.SPEAKUP_EXPO = {
         ["Let me give you a quick tour.", "빠르게 한 바퀴 보여드릴게요"],
         ["On this side we've got the small items: magnets, keychains, ornaments.", "이쪽은 소품이에요: 마그넷, 키체인, 오너먼트"],
         ["These are our best sellers.", "이게 저희 베스트셀러예요"],
-        ["This one's UV-protective, so it's great for beach towns.", "자외선 차단이라 해변 지역에 딱이에요"],
+        ["The aloha shirt and shorts come as a matching set.", "알로하 셔츠랑 반바지가 세트로 나와요"],
         ["Which of these would fit your store?", "이 중에 뭐가 매장에 맞을 것 같아요?"]],
       mission: [
         ["카테고리별로 정리해서 보여주기", "group the products: small items, bags, apparel, home and beach"],
         ["베스트셀러 하나 강조하기", "point out a best seller and why it sells"],
-        ["기능·소재 하나 설명하기", "explain one feature or material, like sun protection or embroidery"],
+        ["기능·소재 하나 설명하기", "explain one feature, like the matching aloha set, sun protection, or embroidery"],
         ["상대 매장에 맞는 제품 물어보기", "ask which items would fit the visitor's store"]] },
     { id: "ex-justlooking", ko: "\"그냥 구경 중이에요\" 대응", title: "\"Just looking, thanks\"",
       visitor: "who says 'Oh, I'm just looking around' and seems ready to walk on",
@@ -133,7 +133,7 @@ window.SPEAKUP_EXPO = {
         ["잔금 70% 시점 말하기", "explain when the 70% balance is due"],
         ["첫 주문 무료배송으로 마무리하기", "close with the free shipping on the first order"]] },
     { id: "ex-quality", ko: "품질·소재 질문", title: "Quality questions",
-      visitor: "who rubs a hoodie between their fingers and asks how well it holds up",
+      visitor: "who rubs the San Diego hoodie between their fingers, then checks the straw bag stitching, and asks how well they hold up",
       phrases: [
         ["Go ahead, feel the fabric.", "원단 한번 만져보세요"],
         ["The embroidery won't fade or peel like a print.", "자수라 프린트처럼 바래거나 벗겨지지 않아요"],
